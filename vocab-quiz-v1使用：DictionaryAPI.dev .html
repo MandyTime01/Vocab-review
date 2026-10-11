@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>单词随机抽查</title>
+<style>
+:root{--bg:#f4f5f8;--card:#fff;--text:#1f2430;--muted:#6b7280;--line:#e3e6ec;--brand:#4f6ef7;--brand-soft:#eef1ff;--ok:#15803d;--ok-bg:#e6f6ec;--bad:#c62828;--bad-bg:#fdecec;--info:#92600a;--info-bg:#fff4dc;--me:#4f6ef7}
+@media (prefers-color-scheme:dark){:root{--bg:#14161b;--card:#1d2027;--text:#e8eaf0;--muted:#9097a5;--line:#2c313b;--brand:#7b93ff;--brand-soft:#232846;--ok:#4ade80;--ok-bg:#16301f;--bad:#f87171;--bad-bg:#3a1b1b;--info:#f5c26b;--info-bg:#3a2f16;--me:#4a62d8}}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:16px;margin:0;flex:1;min-width:140px}
+header .sub{color:var(--muted);font-size:13px}
+button{font:inherit;cursor:pointer}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--text);padding:6px 12px;border-radius:8px}
+.btn:hover{border-color:var(--brand);color:var(--brand)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.primary:hover{opacity:.9;color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+main{flex:1;min-height:0;display:flex;flex-direction:column;width:100%;max-width:980px;margin:0 auto}
+#enrichBar{display:flex;align-items:center;gap:10px;padding:6px 16px;background:var(--brand-soft);font-size:13px;border-bottom:1px solid var(--line)}
+.track{width:120px;height:6px;background:var(--line);border-radius:99px;overflow:hidden;flex:none}
+.track.big{width:100%;height:12px;margin:14px 0 8px}
+.fill{height:100%;background:var(--brand);width:0;transition:width .3s}
+#enrichTxt{flex:1;min-width:0}
+#enrichBar .btn{padding:2px 10px;font-size:12px}
+#setup,#prep{padding:20px 16px;overflow:auto}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+.panel h2{margin:0 0 6px;font-size:16px}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:30px 16px;text-align:center;color:var(--muted);transition:.15s}
+.drop.over{border-color:var(--brand);background:var(--brand-soft);color:var(--brand)}
+.drop b{color:var(--text)}
+.err{color:var(--bad);margin-top:8px;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin:12px 0}
+.grid label{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--muted)}
+select,input[type=text],input[type=password]{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);width:100%}
+table.pv{border-collapse:collapse;width:100%;font-size:13px;margin-top:8px}
+table.pv th,table.pv td{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:top}
+table.pv th{color:var(--muted);font-weight:500}
+#chatWrap{flex:1;min-height:0;display:flex;flex-direction:column}
+#chat{flex:1;overflow:auto;padding:16px 14px 8px}
+.msg{display:flex;margin:10px 0}
+.msg.me{justify-content:flex-end}
+.bubble{max-width:88%;padding:10px 14px;border-radius:14px;background:var(--card);border:1px solid var(--line);word-break:break-word}
+.msg.me .bubble{background:var(--me);border-color:var(--me);color:#fff}
+.tag{display:inline-block;font-size:12px;background:var(--brand-soft);color:var(--brand);padding:1px 8px;border-radius:99px;margin-bottom:4px}
+.big{font-size:28px;font-weight:700;letter-spacing:.3px;margin:2px 0}
+.big.zh{font-size:22px}
+.muted{color:var(--muted)}.small{font-size:12px;margin-top:6px}
+.ph{color:var(--brand);font-family:"Lucida Sans Unicode","Arial Unicode MS",sans-serif}
+.lab2{font-size:12px;color:var(--muted);margin-left:2px}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:2px;font-size:18px}
+.verdict{font-weight:700;margin-bottom:6px;padding:4px 10px;border-radius:8px;display:inline-block}
+.verdict.ok{background:var(--ok-bg);color:var(--ok)}
+.verdict.bad{background:var(--bad-bg);color:var(--bad)}
+.verdict.info{background:var(--info-bg);color:var(--info)}
+.verdict .note{font-weight:400;margin-left:8px;font-size:13px}
+.wordline{font-size:19px;margin:4px 0}
+.sec{margin-top:8px}
+.lab{font-size:12px;color:var(--muted);margin-bottom:1px}
+.ex{padding-left:10px;border-left:3px solid var(--line);margin:3px 0}
+.ex .zh,.pz{color:var(--muted)}
+ul.pl{margin:2px 0;padding-left:20px}
+.aitag{font-size:11px;color:var(--muted);margin-top:6px}
+.dots i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted);margin:0 2px;animation:b 1s infinite}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes b{0%,80%,100%{opacity:.25}40%{opacity:1}}
+.report h3{margin:0 0 6px;font-size:16px}
+.report .row{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0}
+.report .pill{padding:3px 12px;border-radius:99px;font-weight:600}
+.report ol,.report ul{margin:4px 0;padding-left:22px}
+.acts{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+#bar{padding:8px 14px 14px;background:linear-gradient(transparent,var(--bg) 30%)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:99px;padding:3px 12px;font-size:13px}
+.chip:hover{border-color:var(--brand);color:var(--brand)}
+.inrow{display:flex;gap:8px}
+.inrow input{flex:1;padding:10px 12px;font-size:15px;border-radius:10px}
+.help{font-size:12px;color:var(--muted);margin-top:6px}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--text);max-width:460px;width:92%}
+dialog::backdrop{background:rgba(0,0,0,.4)}
+dialog label{display:block;margin:10px 0 3px;font-size:13px;color:var(--muted)}
+.hidden{display:none!important}
+.blist td{vertical-align:middle}
+.blist tr:hover td{background:var(--brand-soft)}
+.cnt-bad{display:inline-block;min-width:26px;text-align:center;padding:1px 7px;border-radius:99px;font-weight:700;background:var(--bad-bg);color:var(--bad);font-size:12px}
+.cnt-ok{display:inline-block;min-width:26px;text-align:center;padding:1px 7px;border-radius:99px;font-weight:700;background:var(--ok-bg);color:var(--ok);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>📖 单词随机抽查</h1>
+  <select id="bookSel" style="width:auto;max-width:230px"></select>
+  <span class="sub" id="bookInfo"></span>
+  <button class="btn" id="btnFocus">🎯 重点复习</button>
+  <button class="btn hidden" id="btnUpgrade">⚡ 升级为 AI 版</button>
+  <button class="btn" id="btnUpload">＋ 导入新词书</button>
+  <button class="btn hidden" id="btnDelBook">🗑 删除</button>
+  <button class="btn" id="btnSettings">⚙️ AI 设置</button>
+</header>
+<div id="enrichBar" class="hidden">
+  <span id="enrichTxt"></span>
+  <div class="track"><div class="fill" id="enrichFill"></div></div>
+  <button class="btn" id="btnEnrich">后台补全</button>
+</div>
+
+<main>
+  <!-- 上传 & 列映射 -->
+  <section id="setup" class="hidden">
+    <div class="panel" id="uploadPanel">
+      <h2>一、上传词库文件</h2>
+      <label class="drop" id="drop" for="file" style="display:block;cursor:pointer">
+        <div style="font-size:30px">📄</div>
+        <div><b>点击选择文件</b>，或把文件拖到这里</div>
+        <div class="small">支持 .pdf / .txt / .csv / .tsv / .md / .json / .xlsx（PDF 和 Excel 需联网加载解析库）<br>PDF 需要是能复制文字的版本（扫描图片版不行）；Word 请先另存为 .txt 或 .csv<br>每次导入都会成为一本独立的词书，不会覆盖旧的</div>
+      </label>
+      <input type="file" id="file" accept=".pdf,.txt,.csv,.tsv,.md,.json,.xlsx,.xls" class="hidden">
+      <div class="err" id="upErr"></div>
+      <div class="acts">
+        <button class="btn" id="btnSample">先用示例词库试试</button>
+        <button class="btn hidden" id="btnCancelSetup">取消，回到抽查</button>
+      </div>
+    </div>
+    <div class="panel hidden" id="mapPanel">
+      <h2>二、确认每一列是什么</h2>
+      <div class="muted" id="mapInfo"></div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:13px">
+        <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="hasHeader"> 第一行是表头</label>
+        <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="mergeCont"> 单词列为空的行并入上一个单词（多词性 / 多行释义）</label>
+      </div>
+      <div class="grid" id="mapGrid"></div>
+      <div id="mapPreview"></div>
+      <details style="margin-top:10px"><summary class="muted small" style="cursor:pointer">查看文件解析出的原始表格（前 15 行，用来核对列有没有切对）</summary><div id="rawPreview" style="overflow:auto"></div></details>
+      <div class="err" id="mapErr"></div>
+      <h2 style="margin-top:16px">三、选择版本</h2>
+      <div class="acts" style="margin-top:6px">
+        <button class="btn primary" id="btnImportLocal">导入为本地版（立即开始）</button>
+        <button class="btn" id="btnImportAI">📖 导入为 AI 版（先补全，完成后进入）</button>
+      </div>
+      <div class="muted small"><b>本地版</b>：直接用词书里已有的内容，英美音标 / 例句会在答题时按需联网（DictionaryAPI.dev）补齐。<br><b>AI 版</b>：导入后先用 DictionaryAPI.dev 一次性把英美音标 / 例句补全并保存在本机，进度条走完再进入，答题时不会卡顿。之后随时可以把本地版升级为 AI 版。</div>
+    </div>
+  </section>
+
+  <!-- AI 版准备中 -->
+  <section id="prep" class="hidden">
+    <div class="panel">
+      <h2 id="prepTitle">📖 正在准备 AI 版</h2>
+      <div class="muted small" style="margin-top:0">正在用 DictionaryAPI.dev 补全英美音标 / 例句，结果会永久保存在本机，下次打开不会再请求已补好的词。完成后自动进入。</div>
+      <div class="track big"><div class="fill" id="prepFill"></div></div>
+      <div id="prepTxt"></div>
+      <div class="err" id="prepErr"></div>
+      <div class="acts">
+        <button class="btn primary" id="prepToggle">暂停</button>
+        <button class="btn" id="prepEnter">现在就进入</button>
+        <button class="btn" id="prepSkip">改用本地版进入</button>
+      </div>
+      <div class="muted small">“现在就进入”：补全继续在后台跑，没补好的词会优先预取。“改用本地版进入”：这本词书改为本地版，之后可随时升级。</div>
+    </div>
+  </section>
+
+  <!-- 聊天 -->
+  <section id="chatWrap" class="hidden">
+    <div id="chat"></div>
+    <div id="bar">
+      <div class="chips">
+        <button class="chip" data-cmd="A">A 英→中</button>
+        <button class="chip" data-cmd="B">B 中→英</button>
+        <button class="chip" data-cmd="1">1 提示</button>
+        <button class="chip" data-cmd="2">2 看答案</button>
+        <button class="chip" data-cmd="下一个">下一个 ⏎</button>
+        <button class="chip" data-cmd="星标">⭐ 添加星标</button>
+        <button class="chip" data-cmd="0">0 结束并出报告</button>
+      </div>
+      <div class="inrow">
+        <input type="text" id="input" placeholder="输入答案、指令或“星标 单词”，回车发送" autocomplete="off" spellcheck="false">
+        <button class="btn primary" id="btnSend">发送</button>
+      </div>
+      <div class="help">提问：在答题时以 ? 开头（例：?这个词和 xx 有什么区别），看完答案后直接提问即可 · 近义词：输入“xx 和 xx 是近义词”· 判错了可输入“算对”修正上一题 · 答错的词自动进「错题本」，点 ☆ 进「星标本」</div>
+    </div>
+  </section>
+</main>
+
+<dialog id="dlg">
+  <h3 style="margin:0 0 4px">AI 设置（可选）</h3>
+  <div class="muted small">不填也能用：抽查、判题、提示、记录都在本地完成（本地版）。填入 API Key 后，可以：回答你的自由提问、对“意思相近但字面不同”的中文回答做语义判题。<br><span class="muted">注：词书的英美音标 / 例句补全已改用免费的 DictionaryAPI.dev，不再消耗 AI 额度。</span> Key 只保存在这台电脑的浏览器里，请求直接发往你选的服务商。</div>
+  <label>服务商</label>
+  <select id="provider">
+    <option value="gemini">Google Gemini</option>
+    <option value="anthropic">Anthropic（Claude）</option>
+    <option value="openai">OpenAI 兼容接口（Groq / OpenRouter / Mistral 等）</option>
+    <option value="doubao">豆包（火山方舟）</option>
+  </select>
+  <div id="baseUrlRow" class="hidden"><label>接口地址（Base URL）</label><input type="text" id="baseUrl" placeholder="https://api.groq.com/openai/v1" autocomplete="off"></div>
+  <label>API Key</label><input type="password" id="apiKey" placeholder="粘贴你的 API Key" autocomplete="off">
+  <label>模型</label><input type="text" id="model" placeholder="gemini-3.8-flash" autocomplete="off">
+  <div class="muted small" id="modelHint" style="margin-top:4px"></div>
+  <div class="acts" style="justify-content:flex-end;margin-top:14px">
+    <button class="btn" id="dlgCancel">取消</button>
+    <button class="btn primary" id="dlgSave">保存</button>
+  </div>
+</dialog>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nl = s => esc(s).replace(/\n/g, '<br>');
+const CJK = /[\u3400-\u9fff\uf900-\ufaff]/;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+/* ===================== 状态 ===================== */
+const S = {
+  books: [], bookId: null, kind: null /* normal | wrong | star | focus */, bmode: 'local' /* local | ai */,
+  words: [], deck: [], mode: null, cur: null, phase: 'idle', // idle | asking | revealed | ended
+  hintLevel: 0, log: [], synonyms: [], busy: false, chatCtx: [], fileName: '',
+  settings: { provider: 'gemini', apiKey: '', model: 'gemini-3.8-flash', baseUrl: '' }, lastReport: ''
+};
+// 错题本 / 星标本：跨词书的全局本子，各自独立保存
+const SP = { wrong: {}, star: {} };
+const P = { rows: [], hasHeader: false, map: {}, info: '', name: '', merge: false };
+let prepActive = false;
+
+function store(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+function load(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
+const hasAI = () => !!S.settings.apiKey;
+// AI 版 = 词书在导入时就用在线词典做了一次性全量补全（音标 / 例句）
+const aiOn = () => S.kind === 'normal' && S.bmode === 'ai';
+const isStarred = w => !!SP.star[String(w).toLowerCase()];
+
+/* ===================== IndexedDB ===================== */
+const DB = {
+  db: null, mem: new Map(),
+  open() {
+    return new Promise((res, rej) => {
+      if (!window.indexedDB) return rej(new Error('no indexedDB'));
+      const r = indexedDB.open('vocabquiz', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => { this.db = r.result; res(); };
+      r.onerror = () => rej(r.error);
+      r.onblocked = () => rej(new Error('blocked'));
+    });
+  },
+  get(k) {
+    if (!this.db) return Promise.resolve(this.mem.get(k));
+    return new Promise((res, rej) => { const r = this.db.transaction('kv').objectStore('kv').get(k); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  },
+  set(k, v) {
+    if (!this.db) { this.mem.set(k, v); return Promise.resolve(); }
+    return new Promise((res, rej) => { const tx = this.db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
+  },
+  del(k) {
+    if (!this.db) { this.mem.delete(k); return Promise.resolve(); }
+    return new Promise((res, rej) => { const tx = this.db.transaction('kv', 'readwrite'); tx.objectStore('kv').delete(k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
+  }
+};
+
+// 全局补全缓存：单词(小写) -> {uk, us, phonetic, examples, phrases, ai:[哪些字段来自在线词典]}
+let CACHE = {};
+const normEntry = w => ({ ...w, word: w.word, meaning: w.meaning, phonetic: w.phonetic || '', uk: w.uk || '', us: w.us || '', examples: w.examples || [], phrases: w.phrases || [], _ai: w._ai || [], _dictTried: w._dictTried || 0 });
+const cleanEntry = e => ({ word: e.word, phonetic: e.phonetic || '', uk: e.uk || '', us: e.us || '', meaning: e.meaning, examples: e.examples || [], phrases: e.phrases || [], _ai: e._ai || [], _dictTried: e._dictTried || 0 });
+let saveT = null, cacheT = null;
+function scheduleSave() { clearTimeout(saveT); saveT = setTimeout(flushSave, 1200); }
+async function flushSave() {
+  clearTimeout(saveT); saveT = null;
+  try {
+    if (S.bookId) {
+      if (S.kind === 'normal') await DB.set('book:' + S.bookId, { words: S.words.map(cleanEntry), stars: [] });
+      else if (S.kind === 'wrong' || S.kind === 'star') { const m = SP[S.kind]; for (const w of S.words) { const o = m[w.word.toLowerCase()]; if (o) o.entry = cleanEntry(w); } }
+      else if (S.kind === 'focus') {
+        for (const w of S.words) {
+          const k = w.word.toLowerCase();
+          if (SP.wrong[k]) SP.wrong[k].entry = cleanEntry(w);
+          if (SP.star[k]) SP.star[k].entry = cleanEntry(w);
+        }
+      }
+    }
+    await DB.set('wrongbook', SP.wrong); await DB.set('starbook', SP.star);
+  } catch (e) {}
+}
+function scheduleCache() { clearTimeout(cacheT); cacheT = setTimeout(() => { DB.set('cache', CACHE).catch(() => {}); }, 1500); }
+window.addEventListener('beforeunload', () => { flushSave(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
+
+function applyCache(e) {
+  const c = CACHE[String(e.word || '').toLowerCase()]; if (!c) return;
+  const got = [];
+  if (!e.uk && c.uk) { e.uk = c.uk; got.push('ph'); }
+  if (!e.us && c.us) { e.us = c.us; if (!got.includes('ph')) got.push('ph'); }
+  if (!e.phonetic && c.phonetic) e.phonetic = c.phonetic;
+  if (!e.examples.length && c.examples && c.examples.length) { e.examples = c.examples.slice(0, 2); got.push('examples'); }
+  if (!e.phrases.length && c.phrases && c.phrases.length) { e.phrases = c.phrases.slice(0, 2); got.push('phrases'); }
+  const aiF = (c.ai || []).filter(f => got.includes(f));
+  if (aiF.length) e._ai = [...new Set([...(e._ai || []), ...aiF])];
+}
+
+/* ===================== 文件解析 ===================== */
+async function readFileText(file) {
+  const buf = await file.arrayBuffer();
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(buf).replace(/^\uFEFF/, ''); }
+  catch (e) { try { return new TextDecoder('gbk').decode(buf); } catch (e2) { return new TextDecoder().decode(buf); } }
+}
+function parseTable(text, d) {
+  const rows = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+    else if (c === '"' && cur.trim() === '') { q = true; cur = ''; }
+    else if (c === d) { row.push(cur); cur = ''; }
+    else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+    else cur += c;
+  }
+  row.push(cur); rows.push(row);
+  return rows.map(r => r.map(s => s.trim())).filter(r => r.some(Boolean));
+}
+function cleanPipe(rows) {
+  return rows.map(r => { r = r.slice(); if (r[0] === '') r.shift(); if (r.length && r[r.length - 1] === '') r.pop(); return r; })
+    .filter(r => !(r.length && r.every(c => /^:?-{2,}:?$/.test(c))));
+}
+function textToRows(text) {
+  text = text.replace(/\r\n?/g, '\n');
+  for (const [d, name] of [['\t', '制表符'], ['|', '竖线 |'], [',', '逗号'], [';', '分号']]) {
+    let rows = parseTable(text, d);
+    if (d === '|') rows = cleanPipe(rows);
+    const sample = rows.slice(0, 40);
+    if (!sample.length) continue;
+    if (sample.filter(r => r.length >= 2).length / sample.length < 0.7) continue;
+    const cnt = {}; sample.forEach(r => cnt[r.length] = (cnt[r.length] || 0) + 1);
+    if (Math.max(...Object.values(cnt)) / sample.length < 0.6) continue;
+    return { rows, info: '分隔方式：' + name };
+  }
+  const rows = text.split('\n').map(s => s.trim()).filter(Boolean).map(l => {
+    l = l.replace(/^\s*\d+\s*[.、)）]\s*/, '');
+    const i = l.search(CJK);
+    return i > 0 ? [l.slice(0, i).trim(), l.slice(i).trim()] : [l];
+  });
+  return { rows, info: '没有检测到固定分隔符，已按“英文 + 中文”自动拆分每一行' };
+}
+function jsonToRows(j) {
+  const flat = v => Array.isArray(v) ? v.map(x => typeof x === 'object' && x ? Object.values(x).join(' ') : x).join('\n') : (typeof v === 'object' && v ? Object.values(v).join(' ') : v);
+  if (Array.isArray(j)) {
+    if (!j.length) return [];
+    if (j[0] && typeof j[0] === 'object' && !Array.isArray(j[0])) {
+      const keys = [...new Set(j.flatMap(o => Object.keys(o)))];
+      return [keys, ...j.map(o => keys.map(k => flat(o[k])))];
+    }
+    if (Array.isArray(j[0])) return j;
+    return j.map(x => [x]);
+  }
+  if (j && typeof j === 'object') {
+    const ents = Object.entries(j);
+    if (ents.every(([k, v]) => typeof v !== 'object')) return ents.map(([k, v]) => [k, v]);
+    const keys = [...new Set(ents.flatMap(([k, v]) => Object.keys(v || {})))];
+    return [['word', ...keys], ...ents.map(([k, v]) => [k, ...keys.map(c => flat((v || {})[c]))])];
+  }
+  return [];
+}
+function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }
+
+const RADICALS = { '\u2EA0': '\u6C11', '\u2EC5': '\u89C1', '\u2EC6': '\u89D2', '\u2EC8': '\u8BA0', '\u2EC9': '\u8D1D', '\u2ECB': '\u8F66', '\u2ECC': '\u8FB6', '\u2ED0': '\u9485', '\u2ED3': '\u957F', '\u2ED4': '\u95E8', '\u2ED9': '\u97E6', '\u2EDA': '\u9875', '\u2EDB': '\u98CE', '\u2EDC': '\u98DE', '\u2EDD': '\u98DF', '\u2EE0': '\u9963', '\u2EE2': '\u9A6C', '\u2EE3': '\u9AA8', '\u2EE5': '\u9C7C', '\u2EE6': '\u9E1F', '\u2EE7': '\u5364', '\u2EE8': '\u9EA6', '\u2EE9': '\u9EC4', '\u2EEA': '\u9EFE', '\u2EEB': '\u9F50', '\u2EEC': '\u9F50', '\u2EED': '\u9F7F', '\u2EEE': '\u9F7F', '\u2EEF': '\u9F99', '\u2EF0': '\u9F99', '\u2EF2': '\u9F9F', '\u2EF3': '\u9F9F', '\u2EB0': '\u7E9F' };
+const fixText = s => s.replace(/[\u2E80-\u2EFF\u2F00-\u2FDF\uF900-\uFAFF\uFB00-\uFB06\u3000]/g, ch => ch === '\u3000' ? ' ' : (RADICALS[ch] || ch.normalize('NFKC')));
+
+function groupLines(items, tol) {
+  const s = items.slice().sort((a, b) => b.y - a.y);
+  const lines = [];
+  for (const it of s) {
+    const l = lines[lines.length - 1];
+    if (l && Math.abs(l.y - it.y) <= tol) l.items.push(it); else lines.push({ y: it.y, items: [it] });
+  }
+  return lines;
+}
+function joinItems(its) {
+  its.sort((a, b) => a.x - b.x);
+  let s = '', end = null;
+  for (const it of its) {
+    if (end !== null && it.x - end > it.h * 0.25 && !(CJK.test(s.slice(-1)) && CJK.test(it.s[0]))) s += ' ';
+    s += it.s; end = it.x + it.w;
+  }
+  return s.replace(/\s+/g, ' ').trim();
+}
+function centerMerge(rows) {
+  const out = [], byPage = new Map();
+  rows.forEach(r => { if (!byPage.has(r.page)) byPage.set(r.page, []); byPage.get(r.page).push(r); });
+  for (const rs of byPage.values()) {
+    const groups = rs.filter(r => r.cells[0]).map(a => ({ a, rows: [] }));
+    if (!groups.length) continue;
+    for (const r of rs) {
+      let best = groups[0], bd = Infinity;
+      for (const g of groups) { const d = Math.abs(g.a.y - r.y); if (d < bd) { bd = d; best = g; } }
+      best.rows.push(r);
+    }
+    for (const g of groups) out.push(g.a.cells.map((_, c) => c === 0 ? g.a.cells[0] : g.rows.map(r => r.cells[c]).filter(Boolean).join('\n')));
+  }
+  return out;
+}
+async function pdfToRows(file) {
+  if (!window.pdfjsLib) {
+    try { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'); }
+    catch (e) { throw new Error('PDF 解析库加载失败（需要联网）。也可以把 PDF 里的表格复制到 Excel / 文本文件后再上传。'); }
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  const pages = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const tc = await (await pdf.getPage(p)).getTextContent();
+    pages.push(tc.items.map(it => ({ x: it.transform[4], y: it.transform[5], w: it.width || 0, h: Math.abs(it.transform[3]) || it.height || 10, s: fixText(it.str || '') })).filter(it => it.s.trim()));
+  }
+  return layoutToRows(pages, pdf.numPages);
+}
+function layoutToRows(pages, numPages) {
+  const all = pages.flat();
+  if (!all.length) throw new Error('这个 PDF 里没有读到文字（可能是扫描图片版）。需要先做 OCR，或换成可以复制文字的版本。');
+  const hs = all.map(i => i.h).sort((a, b) => a - b), medH = hs[Math.floor(hs.length / 2)] || 10;
+  const lineTol = Math.max(2.5, medH * 0.5);
+  const numItems = new Set();
+  const anchorsByPage = pages.map(its => {
+    const cl = [];
+    for (const i of its.filter(i => /^\d{1,4}$/.test(i.s.trim()))) {
+      const cx = i.x + i.w / 2; let c = cl.find(c => Math.abs(c.cx - cx) <= 10);
+      if (!c) { c = { cx, its: [] }; cl.push(c); }
+      c.its.push(i);
+    }
+    const ys = [];
+    for (const c of cl) {
+      if (c.its.length < 3) continue;
+      c.its.sort((a, b) => b.y - a.y);
+      const v = c.its.map(i => +i.s.trim());
+      if (v.slice(1).filter((x, k) => x === v[k] + 1).length / (v.length - 1) < 0.7) continue;
+      c.its.forEach(i => { numItems.add(i); if (!ys.some(y => Math.abs(y - i.y) <= 4)) ys.push(i.y); });
+    }
+    return ys.sort((a, b) => b - a);
+  });
+  const isHdr = l => { const t = l.items.map(i => i.s).join(' '); return !!t.trim() && t.replace(/\b(word|meaning)s?\b|单词|词汇|释义|中文|英文|意思/gi, '').replace(/[\s.:：]+/g, '') === ''; };
+  const pageLines = pages.map(it => groupLines(it, lineTol).filter(l => !isHdr(l))
+    .map(l => ({ y: l.y, items: l.items.filter(i => !numItems.has(i)) })).filter(l => l.items.length));
+  const items = pageLines.flat().flatMap(l => l.items);
+  const gap = Math.max(4, medH * 0.5);
+  const iv = items.map(i => [i.x, i.x + i.w]).sort((a, b) => a[0] - b[0]);
+  const bands = [];
+  for (const [a, b] of iv) { const L = bands[bands.length - 1]; if (L && a - L.end < gap) { L.end = Math.max(L.end, b); L.n++; } else bands.push({ start: a, end: b, n: 1 }); }
+  const minN = Math.max(3, items.length * 0.03);
+  const idx = new Map(); let k = 0;
+  bands.forEach((b, i) => { if (b.n >= minN) idx.set(i, k++); });
+  if (!k) throw new Error('没能从 PDF 里识别出表格列。');
+  const bandOf = it => { const cx = it.x + it.w / 2; for (let i = 0; i < bands.length; i++) if (cx >= bands[i].start - 1 && cx <= bands[i].end + 1) return idx.has(i) ? idx.get(i) : -1; return -1; };
+  if (anchorsByPage.some(a => a.length)) {
+    const anchored = [];
+    pageLines.forEach((ls, p) => {
+      const anc = anchorsByPage[p]; if (!anc.length) return;
+      const diffs = anc.slice(1).map((y, i) => anc[i] - y).sort((a, b) => a - b);
+      const spacing = diffs.length ? diffs[Math.floor(diffs.length / 2)] : medH * 4;
+      const rowsP = anc.map(y => ({ y, cells: Array.from({ length: k }, () => []) }));
+      ls.forEach(l => l.items.forEach(it => {
+        const b = bandOf(it); if (b < 0) return;
+        let best = null, bd = Infinity;
+        for (const r of rowsP) { const d = Math.abs(r.y - it.y); if (d < bd) { bd = d; best = r; } }
+        if (best && bd <= spacing * 0.5) best.cells[b].push(it);
+      }));
+      for (const r of rowsP) {
+        const row = r.cells.map(its => groupLines(its, lineTol).map(l => joinItems(l.items)).join('\n'));
+        if (row.some(Boolean)) anchored.push(row);
+      }
+    });
+    if (anchored.length) return { rows: anchored, merged: true, info: `PDF 共 ${numPages} 页，按行号对齐，识别出 ${k} 列（行号列已忽略，单词与多行释义已自动配对）` };
+  }
+  const rows = [];
+  pageLines.forEach((ls, page) => ls.forEach(l => {
+    const cells = Array.from({ length: k }, () => []);
+    l.items.forEach(it => { const b = bandOf(it); if (b >= 0) cells[b].push(it); });
+    const row = cells.map(joinItems);
+    if (row.some(Boolean) && !row.every(c => /^[\d\s\/\-—–.]*$/.test(c))) rows.push({ y: l.y, page, cells: row });
+  }));
+  const withWord = rows.filter(r => r.cells[0]);
+  const wordOnly = withWord.filter(r => r.cells.slice(1).every(c => !c)).length;
+  const centered = withWord.length >= 5 && wordOnly / withWord.length > 0.3;
+  const outRows = centered ? centerMerge(rows) : rows.map(r => r.cells);
+  return { rows: outRows, merged: centered, info: `PDF 共 ${numPages} 页，识别出 ${k} 列${centered ? '；单词在多行释义中间，已自动把释义并给最近的单词' : ''}` };
+}
+
+const HEADER_RE = {
+  word: /^(单词|词汇|词条|英文|英语|word|words|vocab|vocabulary|english|term|lemma)$/i,
+  phonetic: /(音标|发音)|^(phonetic|phonetics|pronunciation|ipa)$/i,
+  meaning: /(释义|中文|意思|词义|解释|含义|翻译)|^(meaning|meanings|definition|chinese|translation|def|cn)$/i,
+  example: /(例句|例子|句子)|^(example|examples|sentence|sentences)$/i,
+  exampleZh: /(例句|例子|句子).*(翻译|释义|中文)|(翻译|释义|中文).*(例句|例子|句子)|^(example|sentence)[ _-]?(zh|cn|chinese|translation)$/i,
+  phrases: /(短语|词组|搭配|固定)|^(phrase|phrases|collocation|collocations|idiom|idioms)$/i
+};
+const FIELDS = [['word', '单词 *'], ['meaning', '中文释义 *'], ['phonetic', '音标'], ['example', '例句（可含中文翻译）'], ['exampleZh', '例句翻译（若单独一列）'], ['phrases', '短语 / 短语释义']];
+
+function detectHeader(rows) {
+  return rows[0] && rows[0].some(c => Object.values(HEADER_RE).some(re => re.test(c)));
+}
+function autoMap(rows, hasHeader) {
+  const ncol = Math.max(1, ...rows.slice(0, 50).map(r => r.length));
+  const map = { word: -1, meaning: -1, phonetic: -1, example: -1, exampleZh: -1, phrases: -1 };
+  if (hasHeader) {
+    const order = ['exampleZh', 'phonetic', 'example', 'phrases', 'word', 'meaning'];
+    for (let c = 0; c < ncol; c++) {
+      const name = rows[0][c] || '';
+      for (const f of order) if (map[f] === -1 && HEADER_RE[f].test(name)) { map[f] = c; break; }
+    }
+    let last = -1;
+    for (let c = 0; c < ncol; c++) { const n = rows[0][c] || ''; if (HEADER_RE.meaning.test(n) && !HEADER_RE.exampleZh.test(n)) last = c; }
+    if (last >= 0 && map.meaning >= 0 && last !== map.meaning && !Object.entries(map).some(([f, v]) => f !== 'meaning' && v === last)) map.meaning = last;
+  }
+  const data = (hasHeader ? rows.slice(1) : rows).slice(0, 30);
+  const stats = [...Array(ncol).keys()].map(c => {
+    const v = data.map(r => (r[c] || '').trim()).filter(Boolean); const n = v.length || 1;
+    return { c,
+      ascii: v.filter(s => !CJK.test(s) && s.length <= 40).length / n,
+      cjk: v.filter(s => CJK.test(s)).length / n,
+      ph: v.filter(s => /^[\/\[].*[\/\]]$/.test(s) || /[ˈˌəɪʊæɒʌθðʃʒŋ]/.test(s)).length / n,
+      len: v.reduce((a, s) => a + s.length, 0) / n };
+  });
+  const used = new Set(Object.values(map).filter(x => x >= 0));
+  const pick = (fn, min) => { let best = -1, bs = min; for (const s of stats) { if (used.has(s.c)) continue; const sc = fn(s); if (sc > bs) { bs = sc; best = s.c; } } if (best >= 0) used.add(best); return best; };
+  if (map.phonetic < 0) map.phonetic = pick(s => s.ph, 0.5);
+  if (map.word < 0) map.word = pick(s => s.ascii - s.len / 200, 0.5);
+  if (map.meaning < 0) map.meaning = pick(s => s.cjk - s.len / 500, 0.5);
+  if (map.example < 0) map.example = pick(s => s.len > 35 ? s.len / 100 : 0, 0.3);
+  return map;
+}
+
+function cleanPhonetic(p) {
+  p = (p || '').trim(); if (!p) return '';
+  if (/[\/\[]/.test(p)) return p;
+  return '/' + p + '/';
+}
+function parseExamples(text, zhText) {
+  if (!text) return [];
+  const out = [];
+  for (const ln of text.split(/\n+/).map(s => s.trim()).filter(Boolean)) {
+    const i = ln.search(CJK);
+    if (i === -1) out.push({ en: ln, zh: '' });
+    else if (i === 0) { if (out.length && !out[out.length - 1].zh) out[out.length - 1].zh = ln; else out.push({ en: '', zh: ln }); }
+    else out.push({ en: ln.slice(0, i).replace(/[\s(（\-—/|:：]+$/, '').trim(), zh: ln.slice(i).replace(/^[)）\s]+/, '').trim() });
+  }
+  if (zhText) { const zl = zhText.split(/\n+/).map(s => s.trim()).filter(Boolean); out.forEach((o, k) => { if (!o.zh && zl[k]) o.zh = zl[k]; }); }
+  return out.filter(o => o.en || o.zh);
+}
+function parsePhrases(text) {
+  if (!text) return [];
+  let items = text.split(/\n+|[;；|]/).map(s => s.trim()).filter(Boolean);
+  if (items.length === 1) {
+    const parts = items[0].split(/(?<=[\u3400-\u9fff）)])\s*[,，、]\s*(?=[A-Za-z])/);
+    if (parts.length > 1) items = parts.map(s => s.trim()).filter(Boolean);
+  }
+  const out = [];
+  for (const it of items) {
+    const i = it.search(CJK);
+    if (i === -1) out.push({ en: it, zh: '' });
+    else if (i === 0) { if (out.length && !out[out.length - 1].zh) out[out.length - 1].zh = it; else out.push({ en: '', zh: it }); }
+    else out.push({ en: it.slice(0, i).replace(/[\s(（\-—:：=]+$/, '').trim(), zh: it.slice(i).trim() });
+  }
+  return out.filter(o => o.en || o.zh);
+}
+function mergeRows(rows, hasHeader, map) {
+  if (map.word < 0) return rows;
+  const start = hasHeader ? 1 : 0;
+  const fs = ['meaning', 'example', 'exampleZh', 'phrases'].map(f => map[f]).filter(c => c >= 0);
+  const out = [];
+  rows.forEach((r, i) => {
+    if (i >= start && !(r[map.word] || '').trim() && out.length > start) {
+      const prev = out[out.length - 1];
+      for (const c of fs) { const v = (r[c] || '').trim(); if (v) prev[c] = ((prev[c] || '') ? prev[c] + '\n' : '') + v; }
+    } else out.push(r.slice());
+  });
+  return out;
+}
+function guessMerge(rows, hasHeader, map) {
+  if (map.word < 0) return false;
+  const d = hasHeader ? rows.slice(1) : rows;
+  return d.length > 0 && d.filter((r, i) => i > 0 && !(r[map.word] || '').trim()).length / d.length >= 0.1;
+}
+function buildEntries(rows, hasHeader, map, merge) {
+  if (merge) rows = mergeRows(rows, hasHeader, map);
+  const data = hasHeader ? rows.slice(1) : rows;
+  const cell = (r, f) => map[f] >= 0 ? (r[map[f]] || '').trim() : '';
+  const out = [];
+  for (const r of data) {
+    const word = cell(r, 'word').replace(/^\d+\s*[.、)）]\s*/, '').trim();
+    if (!word || !/[A-Za-z]/.test(word) || !cell(r, 'meaning')) continue;
+    out.push(normEntry({
+      word, phonetic: cleanPhonetic(cell(r, 'phonetic')), meaning: cell(r, 'meaning'),
+      examples: parseExamples(cell(r, 'example'), cell(r, 'exampleZh')),
+      phrases: parsePhrases(cell(r, 'phrases'))
+    }));
+  }
+  return out;
+}
+
+/* ===================== 词书管理 ===================== */
+const newId = () => 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+
+function showView(v) {
+  $('#setup').classList.toggle('hidden', v !== 'setup');
+  $('#prep').classList.toggle('hidden', v !== 'prep');
+  $('#chatWrap').classList.toggle('hidden', v !== 'chat');
+}
+function updateBookUI() {
+  const sel = $('#bookSel'), wn = Object.keys(SP.wrong).length, sn = Object.keys(SP.star).length;
+  let h = S.bookId ? '' : '<option value="">选择词书…</option>';
+  h += S.books.map(b => `<option value="${esc(b.id)}">${b.mode === 'ai' ? '📖 ' : ''}${esc(b.name)}（${b.count}）</option>`).join('');
+  h += `<option value="star">⭐ 星标本（${sn}）</option><option value="wrong">❌ 错题本（${wn}）</option>`;
+  if (S.kind === 'focus') h += `<option value="focus">🎯 重点复习中（${S.words.length}）</option>`;
+  sel.innerHTML = h; sel.value = S.bookId || '';
+  const special = S.kind === 'wrong' || S.kind === 'star';
+  $('#btnDelBook').classList.toggle('hidden', !S.bookId || S.kind === 'focus');
+  $('#btnDelBook').textContent = special ? '🧹 清空本子' : '🗑 删除词书';
+  $('#btnUpgrade').classList.toggle('hidden', !(S.kind === 'normal' && S.bmode === 'local' && S.words.length));
+  const isSpecial = special || S.kind === 'focus';
+  $('#bookInfo').textContent = S.bookId ? `${S.words.length} 词${S.kind === 'normal' ? (S.bmode === 'ai' ? ' · AI 版' : ' · 本地版') : ''}` : '';
+  $('#btnFocus').disabled = !(wn + sn);
+}
+async function openBook(id) {
+  await flushSave();
+  Q.prio = []; Q.bulk = []; Q.bulkOn = false; Q.err = ''; Q.fail = 0; prepActive = false;
+  if (id === 'wrong' || id === 'star') {
+    S.bookId = id; S.kind = id; S.bmode = 'local';
+    S.fileName = id === 'wrong' ? '❌ 错题本' : '⭐ 星标本';
+    S.words = Object.values(SP[id]).map(o => normEntry(o.entry));
+  } else {
+    const rec = await DB.get('book:' + id);
+    const meta = S.books.find(b => b.id === id);
+    if (!rec || !meta) return false;
+    S.bookId = id; S.kind = 'normal'; S.bmode = meta.mode || 'local'; S.fileName = meta.name;
+    S.words = (rec.words || []).map(normEntry);
+    if (rec.stars && rec.stars.length) {
+      for (const w of rec.stars) {
+        const e = S.words.find(x => x.word.toLowerCase() === String(w).toLowerCase());
+        if (e && !SP.star[e.word.toLowerCase()]) SP.star[e.word.toLowerCase()] = { entry: cleanEntry(e), from: meta.name, at: Date.now() };
+      }
+      scheduleSave();
+    }
+  }
+  S.words.forEach(applyCache);
+  try { localStorage.setItem('vq_last', id); } catch (e) {}
+  resetRound(); updateBookUI();
+  $('#chat').innerHTML = '';
+  showView('chat');
+  if (S.kind === 'wrong' || S.kind === 'star') renderBookList();
+  else { welcome(); if (S.kind === 'normal' && S.bmode === 'ai' && !hasAI()) bot('<span class="muted small">这是 AI 版词书，补全已由免费在线词典完成，无需 API Key。自由提问功能可点右上角 ⚙️ 填入 Key 后使用。</span>'); }
+  if (aiOn() && S.words.some(needs)) startPrep(); else updateBar();
+  return true;
+}
+async function importWords(words, name, mode = 'local') {
+  if (!words.length) return;
+  words.forEach(applyCache);
+  let nm = name, i = 2;
+  while (S.books.some(b => b.name === nm)) nm = `${name} (${i++})`;
+  const id = newId();
+  S.books.push({ id, name: nm, count: words.length, created: Date.now(), mode });
+  await DB.set('book:' + id, { words: words.map(cleanEntry), stars: [] });
+  await DB.set('books', S.books);
+  await openBook(id);
+  $('#input').focus();
+}
+$('#bookSel').addEventListener('change', e => {
+  const v = e.target.value;
+  if (!v || v === 'focus') { if (v === 'focus') e.target.value = S.bookId || ''; return; }
+  openBook(v);
+});
+$('#btnDelBook').addEventListener('click', async () => {
+  if (!S.bookId || S.kind === 'focus') return;
+  if (S.kind === 'wrong' || S.kind === 'star') {
+    if (!confirm(`清空「${S.fileName}」里的全部 ${S.words.length} 个词？此操作不可恢复。`)) return;
+    SP[S.kind] = {}; S.words = []; await flushSave(); await openBook(S.kind); return;
+  }
+  if (!confirm(`删除词书「${S.fileName}」？此操作不可恢复（错题本和星标本里的词会保留）。`)) return;
+  const id = S.bookId;
+  clearTimeout(saveT); saveT = null;
+  S.books = S.books.filter(b => b.id !== id);
+  await DB.del('book:' + id); await DB.set('books', S.books);
+  S.bookId = null; S.kind = null; S.words = [];
+  if (S.books.length) await openBook(S.books[0].id);
+  else { Q.prio = []; Q.bulk = []; Q.bulkOn = false; prepActive = false; resetRound(); updateBookUI(); updateBar(); $('#chat').innerHTML = ''; $('#mapPanel').classList.add('hidden'); $('#btnCancelSetup').classList.add('hidden'); showView('setup'); }
+});
+$('#btnUpgrade').addEventListener('click', async () => {
+  const meta = S.books.find(b => b.id === S.bookId); if (!meta) return;
+  meta.mode = 'ai'; S.bmode = 'ai'; await DB.set('books', S.books); updateBookUI();
+  if (S.words.some(needs)) startPrep(); else bot('<span class="muted small">这本词书的英美音标 / 例句已经齐全，无需等待。</span>');
+});
+
+/* ===================== AI 版准备页 ===================== */
+function startPrep() {
+  prepActive = true;
+  $('#prepTitle').textContent = `📖 正在准备 AI 版：${S.fileName}`;
+  showView('prep');
+  startBulk();
+  updatePrep();
+}
+function updatePrep() {
+  if (!prepActive) return;
+  const total = S.words.length, todo = S.words.filter(needs).length, done = total - todo;
+  if (todo === 0) { prepActive = false; Q.bulkOn = false; showView('chat'); bot('<span class="muted small">✅ AI 版已就绪：英美音标 / 例句已全部补全并保存在本机。开始答题吧。</span>'); updateBar(); input.focus(); return; }
+  $('#prepFill').style.width = (done / total * 100) + '%';
+  $('#prepTxt').textContent = `已补全 ${done} / ${total} 个词` + (Q.bulkOn ? '（进行中…）' : (Q.running ? '（正在收尾…）' : '（已暂停）'));
+  $('#prepErr').textContent = Q.err ? (Q.bulkOn ? '遇到问题，正在自动重试：' : '已暂停：') + Q.err : '';
+  $('#prepToggle').textContent = Q.bulkOn ? '暂停' : (Q.err ? '重试' : '继续');
+}
+$('#prepToggle').addEventListener('click', () => { Q.bulkOn ? pauseBulk() : startBulk(); });
+$('#prepEnter').addEventListener('click', () => { prepActive = false; showView('chat'); updateBar(); input.focus(); });
+$('#prepSkip').addEventListener('click', async () => {
+  prepActive = false; Q.prio = []; Q.bulk = []; Q.bulkOn = false;
+  const meta = S.books.find(b => b.id === S.bookId); if (meta) { meta.mode = 'local'; await DB.set('books', S.books); }
+  S.bmode = 'local'; updateBookUI(); updateBar(); showView('chat');
+  bot('<span class="muted small">已改为本地版，已补全的内容会保留。想要时点右上角“⚡ 升级为 AI 版”继续补全。</span>'); input.focus();
+});
+
+/* ===================== 上传 UI ===================== */
+async function handleFile(file) {
+  $('#upErr').textContent = '';
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    let rows = [], info = '', pdfMerge = null;
+    if (ext === 'xlsx' || ext === 'xls') {
+      if (!window.XLSX) {
+        try { await loadScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'); }
+        catch (e) { throw new Error('Excel 解析库加载失败（需要联网）。请把表格另存为 .csv 再上传。'); }
+      }
+      const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+      rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' });
+      info = `Excel 工作表：${wb.SheetNames[0]}`;
+    } else if (ext === 'json') {
+      rows = jsonToRows(JSON.parse(await readFileText(file))); info = 'JSON';
+    } else if (ext === 'pdf') {
+      const r = await pdfToRows(file); rows = r.rows; info = r.info; pdfMerge = !r.merged;
+    } else if (ext === 'docx' || ext === 'doc') {
+      throw new Error('暂不支持直接读取 Word，请另存为 .txt 或 .csv 后再上传。');
+    } else {
+      const r = textToRows(await readFileText(file)); rows = r.rows; info = r.info;
+    }
+    rows = rows.map(r => r.map(c => fixText(String(c ?? '').trim()))).filter(r => r.some(Boolean));
+    if (!rows.length) throw new Error('文件里没有读到内容。');
+    P.rows = rows; P.info = info; P.name = file.name.replace(/\.[^.]+$/, '');
+    P.hasHeader = ext === 'pdf' ? false : detectHeader(rows);
+    P.map = autoMap(rows, P.hasHeader);
+    { const nc = Math.max(...rows.slice(0, 50).map(r => r.length));
+      if (ext === 'pdf' && nc === 4) { P.map.word = 0; P.map.meaning = 3; }
+      else if (ext === 'pdf' && nc === 2) { P.map.word = 0; P.map.meaning = 1; } }
+    P.merge = pdfMerge !== null ? pdfMerge : guessMerge(rows, P.hasHeader, P.map);
+    renderMapping();
+  } catch (e) { $('#upErr').textContent = e.message; }
+}
+function renderMapping() {
+  $('#mapPanel').classList.remove('hidden');
+  $('#mapInfo').textContent = `${P.name} · 共读到 ${P.rows.length} 行 · ${P.info}`;
+  $('#hasHeader').checked = P.hasHeader; $('#mergeCont').checked = P.merge;
+  { const nc = Math.max(...P.rows.slice(0, 50).map(r => r.length));
+    $('#rawPreview').innerHTML = `<table class="pv">${P.rows.slice(0, 15).map(r => `<tr>${[...Array(nc).keys()].map(c => `<td>${esc(r[c] || '')}</td>`).join('')}</tr>`).join('')}</table>`; }
+  const ncol = Math.max(...P.rows.slice(0, 50).map(r => r.length));
+  const colLabel = c => { const t = (P.hasHeader ? P.rows[0][c] : (P.rows[0][c] || '')) || ''; return `列${c + 1}：${t.length > 14 ? t.slice(0, 14) + '…' : t}`; };
+  $('#mapGrid').innerHTML = FIELDS.map(([f, label]) =>
+    `<label>${label}<select data-f="${f}"><option value="-1">（无）</option>${[...Array(ncol).keys()].map(c => `<option value="${c}" ${P.map[f] === c ? 'selected' : ''}>${esc(colLabel(c))}</option>`).join('')}</select></label>`).join('');
+  renderPreview();
+}
+function renderPreview() {
+  const ents = buildEntries(P.rows, P.hasHeader, P.map, P.merge);
+  const ok = P.map.word >= 0 && P.map.meaning >= 0 && ents.length > 0;
+  $('#mapErr').textContent = ok ? '' : '请至少指定“单词”和“中文释义”两列。';
+  $('#btnImportLocal').disabled = !ok; $('#btnImportAI').disabled = !ok;
+  $('#mapPreview').innerHTML = ents.length ? `<div class="muted small">解析预览（共 ${ents.length} 个单词，只显示前 5 个）</div>
+  <table class="pv"><tr><th>单词</th><th>音标</th><th>释义</th><th>例句</th><th>短语</th></tr>${ents.slice(0, 5).map(e =>
+    `<tr><td>${esc(e.word)}</td><td>${esc(e.phonetic)}</td><td>${esc(e.meaning)}</td><td>${e.examples.length}</td><td>${e.phrases.length}</td></tr>`).join('')}</table>` : '';
+}
+$('#mapGrid').addEventListener('change', e => { const f = e.target.dataset.f; if (f) { P.map[f] = +e.target.value; renderPreview(); } });
+$('#hasHeader').addEventListener('change', e => { P.hasHeader = e.target.checked; P.map = autoMap(P.rows, P.hasHeader); renderMapping(); });
+$('#mergeCont').addEventListener('change', e => { P.merge = e.target.checked; renderPreview(); });
+$('#file').addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); e.target.value = ''; });
+const drop = $('#drop');
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) handleFile(f); });
+$('#btnUpload').addEventListener('click', () => { $('#mapPanel').classList.add('hidden'); $('#upErr').textContent = ''; $('#btnCancelSetup').classList.toggle('hidden', !S.bookId); showView('setup'); });
+$('#btnCancelSetup').addEventListener('click', () => { prepActive ? showView('prep') : showView('chat'); });
+$('#btnImportLocal').addEventListener('click', () => importWords(buildEntries(P.rows, P.hasHeader, P.map, P.merge), P.name, 'local'));
+$('#btnImportAI').addEventListener('click', () => {
+  importWords(buildEntries(P.rows, P.hasHeader, P.map, P.merge), P.name, 'ai');
+});
+$('#btnSample').addEventListener('click', () => importWords(SAMPLE.map(x => normEntry(x)), '示例词库', 'local'));
+
+const SAMPLE = [
+  { word: 'abandon', phonetic: '/əˈbændən/', meaning: 'v. 放弃；遗弃；抛弃', examples: [{ en: 'They had to abandon the car in the snow.', zh: '他们不得不把车丢弃在雪地里。' }], phrases: [{ en: 'abandon oneself to', zh: '沉溺于' }, { en: 'abandon hope', zh: '放弃希望' }] },
+  { word: 'ambiguous', phonetic: '/æmˈbɪɡjuəs/', meaning: 'adj. 模棱两可的；含糊不清的', examples: [{ en: 'His answer was deliberately ambiguous.', zh: '他的回答故意含糊其辞。' }], phrases: [{ en: 'an ambiguous statement', zh: '含糊的声明' }] },
+  { word: 'mitigate', phonetic: '/ˈmɪtɪɡeɪt/', meaning: 'v. 减轻；缓和', examples: [{ en: 'Trees help mitigate the effects of pollution.', zh: '树木有助于减轻污染的影响。' }], phrases: [{ en: 'mitigate the risk', zh: '降低风险' }, { en: 'mitigating circumstances', zh: '可减轻罪责的情节' }] },
+  { word: 'reluctant', phonetic: '/rɪˈlʌktənt/', meaning: 'adj. 不情愿的；勉强的', examples: [{ en: 'She was reluctant to admit she was wrong.', zh: '她不愿承认自己错了。' }], phrases: [{ en: 'be reluctant to do sth', zh: '不愿做某事' }] },
+  { word: 'sustain', phonetic: '/səˈsteɪn/', meaning: 'v. 维持；支撑；遭受', examples: [{ en: 'The economy cannot sustain such rapid growth.', zh: '经济无法维持如此快速的增长。' }], phrases: [{ en: 'sustain an injury', zh: '受伤' }, { en: 'sustainable development', zh: '可持续发展' }] }
+];
+
+function resetRound() { S.deck = shuffle([...S.words]); S.log = []; S.synonyms = []; S.mode = null; S.cur = null; S.phase = 'idle'; S.hintLevel = 0; S.chatCtx = []; }
+function welcome() {
+  if (!S.words.length) {
+    bot(`<b>${esc(S.fileName)}</b> 目前是空的。<br>在任何词书里答错 / 看答案的词会自动进入 <b>❌ 错题本</b>；点 ☆ 收藏的词会进入 <b>⭐ 星标本</b>。它们都会一直保存在本机。`);
+    return;
+  }
+  const extra = S.kind === 'wrong' ? '<br><span class="muted">错题本：同一个词连续答对 2 次会自动移出。</span>' : S.kind === 'star' ? '<br><span class="muted">星标本：点已收藏词旁边的按钮可以取消收藏。</span>' : '';
+  bot(`<b>「${esc(S.fileName)}」已就绪：${S.words.length} 个单词</b>，将随机顺序抽查。<br><br>
+  输入 <b>A</b>：我给英文，你答中文<br>输入 <b>B</b>：我给中文，你拼英文<br><br>
+  答题时：<b>1</b> = 提示（A：给语境，不含中文；B：音标 + 字母提示）　<b>2</b> = 直接看完整答案<br>
+  任何时候：<b>A / B</b> 切换模式 · <b>0</b> 结束本轮并查看成绩 · “xx 和 xx 是近义词”帮你记录。<br>
+  <span class="muted">复习过程中不会显示对错统计，输入 0 后一次性给你。</span>${extra}`);
+}
+
+/* ===================== 错题本 / 星标本：列表视图 ===================== */
+function renderBookList() {
+  const isWrong = S.kind === 'wrong';
+  if (!S.words.length) {
+    bot(isWrong
+      ? '<b>❌ 错题本</b><br>还是空的。答题时答错或看答案的词会自动收进来，同一个词连续答对 2 次会自动移出。'
+      : '<b>⭐ 星标本</b><br>还是空的。答题时点答案卡上的「☆ 收藏单词」，或输入「星标 单词」即可收藏。');
+    return;
+  }
+  const rows = S.words.map(e => {
+    const k = e.word.toLowerCase();
+    const rec = isWrong ? SP.wrong[k] : SP.star[k];
+    return { e, n: isWrong ? (rec?.n || 1) : 0, ok: rec?.ok || 0, from: rec?.from || '' };
+  });
+  if (isWrong) rows.sort((a, b) => b.n - a.n);
+  else rows.sort((a, b) => (SP.star[b.e.word.toLowerCase()]?.at || 0) - (SP.star[a.e.word.toLowerCase()]?.at || 0));
+  const totalWrong = rows.reduce((a, r) => a + r.n, 0);
+  let h = `<div class="report">`;
+  h += `<h3>${isWrong ? '❌ 错题本' : '⭐ 星标本'} · 共 ${rows.length} 个词</h3>`;
+  h += `<div class="muted small">${isWrong
+    ? `累计答错 ${totalWrong} 次。按错误次数从多到少排列；同一个词连续答对 2 次会自动移出错题本。`
+    : '按收藏时间从新到旧排列。'}</div>`;
+  h += `<div style="overflow:auto;max-height:340px;margin-top:8px;border:1px solid var(--line);border-radius:10px"><table class="pv blist" style="margin-top:0">`;
+  h += `<tr><th style="width:36px">#</th><th>单词</th><th>释义</th><th style="width:88px">${isWrong ? '错误次数' : '来源'}</th></tr>`;
+  rows.forEach((r, i) => {
+    h += `<tr><td class="muted">${i + 1}</td><td><b>${esc(r.e.word)}</b>${r.e.uk || r.e.us ? ` <span class="ph">${esc(r.e.uk || r.e.us)}</span>` : ''}</td>`
+      + `<td>${esc(String(r.e.meaning).replace(/\n/g, '；'))}</td>`
+      + `<td>${isWrong ? `<span class="cnt-bad">${r.n}</span>${r.ok ? ` <span class="cnt-ok" title="已连对">${r.ok}</span>` : ''}` : `<span class="muted">${esc(r.from || '—')}</span>`}</td></tr>`;
+  });
+  h += `</table></div>`;
+  h += `<div class="acts"><button class="btn primary" data-act="focus">🎯 重点复习这本</button><button class="btn" data-act="clear">🧹 清空</button></div>`;
+  h += `</div>`;
+  bot(h);
+}
+
+/* ===================== 聊天 UI ===================== */
+const chat = $('#chat'), input = $('#input');
+function addMsg(role, html) {
+  const d = document.createElement('div'); d.className = 'msg ' + role;
+  d.innerHTML = `<div class="bubble">${html}</div>`; chat.appendChild(d);
+  requestAnimationFrame(() => chat.scrollTop = chat.scrollHeight);
+  return d;
+}
+const bot = h => addMsg('bot', h);
+const me = t => addMsg('me', esc(t));
+function typing() { const d = addMsg('bot', '<span class="dots"><i></i><i></i><i></i></span>'); return () => d.remove(); }
+
+function phHtml(e) {
+  if (e.uk || e.us) return [e.uk && `<span class="lab2">英</span> <span class="ph">${esc(e.uk)}</span>`, e.us && `<span class="lab2">美</span> <span class="ph">${esc(e.us)}</span>`].filter(Boolean).join('　');
+  return e.phonetic ? `<span class="ph">${esc(e.phonetic)}</span>` : '';
+}
+function cardHtml(e, head, cls) {
+  let h = '';
+  const pending = aiOn() && needs(e);
+  if (head) h += `<div class="verdict ${cls}">${head}</div>`;
+  h += `<div class="wordline"><b>${esc(e.word)}</b> ${phHtml(e)} <button class="btn" data-star-word="${esc(e.word)}">${isStarred(e.word) ? '⭐ 已收藏' : '☆ 收藏单词'}</button></div>`;
+  h += `<div class="sec"><div class="lab">释义</div><div>${nl(e.meaning)}</div></div>`;
+  if (e.examples.length) h += `<div class="sec"><div class="lab">例句</div>${e.examples.slice(0, 2).map(x => `<div class="ex">${esc(x.en)}${x.zh ? `<div class="zh">${esc(x.zh)}</div>` : ''}</div>`).join('')}</div>`;
+  else h += `<div class="sec muted small">（${pending ? '例句补充中…' : '词库里没有这个词的例句'}）</div>`;
+  if (e.phrases.length) h += `<div class="sec"><div class="lab">短语</div><ul class="pl">${e.phrases.slice(0, 2).map(x => `<li>${esc(x.en)}${x.zh ? ` <span class="pz">— ${esc(x.zh)}</span>` : ''}</li>`).join('')}</ul></div>`;
+  const ai = (e._ai || []).map(x => ({ ph: '英美音标', phonetic: '音标', examples: '例句', phrases: '短语' }[x])).filter(Boolean);
+  if (ai.length) h += `<div class="aitag">📖 其中 ${[...new Set(ai)].join('、')} 由 DictionaryAPI.dev 在线词典补充</div>`;
+  return h;
+}
+
+/* ===================== 在线词典（DictionaryAPI.dev） ===================== */
+// 容错解析：音标、例句
+function parseDictFull(j) {
+  const out = { uk: '', us: '', any: '', examples: [] };
+  for (const ent of (Array.isArray(j) ? j : [])) {
+    for (const p of (ent.phonetics || [])) {
+      const t = (p.text || '').trim(); if (!t) continue;
+      const a = (p.audio || '').toLowerCase();
+      if (!out.uk && /-uk\./.test(a)) out.uk = t;
+      else if (!out.us && /-us\./.test(a)) out.us = t;
+      if (!out.any) out.any = t;
+    }
+    if (!out.any && ent.phonetic) out.any = ent.phonetic;
+    for (const m of (ent.meanings || [])) {
+      for (const d of (m.definitions || [])) {
+        if (d.example && out.examples.length < 2) out.examples.push({ en: d.example, zh: '' });
+      }
+    }
+  }
+  return out;
+}
+const DICT_MAX_TRIES = 2;
+async function dictEnrich(e) {
+  if ((e._dictTried || 0) >= DICT_MAX_TRIES) return false;
+  e._dictTried = (e._dictTried || 0) + 1;
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
+    const r = await fetch('https://api.dictionaryapi.dev/v2/entries/en/' + encodeURIComponent(String(e.word).toLowerCase()), { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!r.ok) return false;
+    const d = parseDictFull(await r.json());
+    const got = [];
+    if (!e.uk && d.uk) { e.uk = cleanPhonetic(d.uk); got.push('ph'); }
+    if (!e.us && d.us) { e.us = cleanPhonetic(d.us); if (!got.includes('ph')) got.push('ph'); }
+    if (!e.phonetic && d.any) e.phonetic = cleanPhonetic(d.any);
+    if (!e.examples.length && d.examples.length) { e.examples = d.examples.slice(0, 2); got.push('examples'); }
+    if (!got.length) return false;
+    e._ai = [...new Set([...(e._ai || []), ...got])];
+    const key = String(e.word).toLowerCase(), c = CACHE[key] || {};
+    if (e.uk) c.uk = e.uk; if (e.us) c.us = e.us; if (e.phonetic) c.phonetic = e.phonetic;
+    if (e.examples.length) c.examples = e.examples;
+    c.ai = [...new Set([...(c.ai || []), ...got])];
+    CACHE[key] = c;
+    scheduleSave(); scheduleCache();
+    return true;
+  } catch (_) { return false; }
+}
+// 兼容旧调用点：只用它来补音标
+async function getPhonetics(e) {
+  if (e.uk && e.us) return false;
+  const had = !!(e.uk || e.us || e.phonetic);
+  await dictEnrich(e);
+  return !had && !!(e.uk || e.us || e.phonetic);
+}
+
+/* ===================== AI 调用（仅用于自由提问 / 语义判题） ===================== */
+async function callLLM(system, messages, max = 600, timeoutMs = 15000, json = false) {
+  const { provider, apiKey, model, baseUrl } = S.settings;
+  let url, headers = { 'content-type': 'application/json' }, body, pick;
+  if (provider === 'gemini') {
+    const m = (model || 'gemini-3.8-flash').replace(/^models\//, '');
+    url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    body = {
+      systemInstruction: { parts: [{ text: system }] },
+      contents: messages.map(x => ({ role: x.role === 'assistant' ? 'model' : 'user', parts: [{ text: x.content }] })),
+      generationConfig: { maxOutputTokens: Math.max(max, 2048), ...(json ? { responseMimeType: 'application/json' } : {}) }
+    };
+    pick = j => {
+      const c = j.candidates?.[0];
+      const t = (c?.content?.parts || []).map(p => p.text || '').join('');
+      if (!t) throw new Error(j.promptFeedback?.blockReason ? `请求被拦截：${j.promptFeedback.blockReason}` : `模型没有返回内容${c?.finishReason ? '（' + c.finishReason + '）' : ''}`);
+      return t;
+    };
+  } else if (provider === 'openai' || provider === 'doubao') {
+    const root = (provider === 'doubao' ? (baseUrl || 'https://ark.cn-beijing.volces.com/api/v3') : (baseUrl || '')).replace(/\/+$/, '');
+    url = root.endsWith('/chat/completions') ? root : root + '/chat/completions';
+    headers.authorization = 'Bearer ' + apiKey;
+    body = { model, max_tokens: max, messages: [{ role: 'system', content: system }, ...messages] };
+    pick = j => j.choices?.[0]?.message?.content || '';
+  } else {
+    url = 'https://api.anthropic.com/v1/messages';
+    headers['x-api-key'] = apiKey; headers['anthropic-version'] = '2023-06-01'; headers['anthropic-dangerous-direct-browser-access'] = 'true';
+    body = { model: model || 'claude-sonnet-5-5', max_tokens: max, system, messages };
+    pick = j => (j.content || []).map(b => b.text || '').join('');
+  }
+  const ctrl = new AbortController(); const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let r; try { r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: ctrl.signal }); } catch (e) { if (e.name === 'AbortError') throw new Error(`AI 请求超过 ${Math.round(timeoutMs / 1000)} 秒`); throw new Error('网络请求失败：' + (e.message || '请检查网络')); } finally { clearTimeout(timer); }
+  if (!r.ok) {
+    let t = ''; try { const e = await r.json(); t = e.error?.message || e.message || ''; } catch (_) {}
+    const hint = r.status === 404 ? '（模型名可能不对）' : r.status === 400 || r.status === 403 ? '（请检查 API Key）' : r.status === 429 ? '（请求太频繁或额度用完 / 限流）' : '';
+    throw new Error(`AI 请求失败（${r.status}）${hint}${t ? ' ' + t.slice(0, 80) : ''}`);
+  }
+  return pick(await r.json());
+}
+
+/* ===================== 后台补全队列（走 DictionaryAPI.dev） ===================== */
+// prio：当前题 / 即将出现的题，优先处理；bulk：整本词书的批量补全（可暂停）
+const Q = { prio: [], bulk: [], running: false, bulkOn: false, fail: 0, err: '' };
+const BATCH_PRIO = 6, BATCH_BULK = 10, BULK_GAP = 200;
+const needFields = e => {
+  if ((e._dictTried || 0) >= DICT_MAX_TRIES) return [];
+  return [!(e.uk && e.us) && 'ph', !e.examples.length && 'examples'].filter(Boolean);
+};
+const needs = e => needFields(e).length > 0;
+const FIELD_ZH = { ph: '英美音标', examples: '例句' };
+
+function enqueue(list, prio, front) {
+  if (!aiOn()) return;
+  const arr = prio ? Q.prio : Q.bulk;
+  for (const e of (front ? [...list].reverse() : list)) {
+    if (!needs(e) || arr.includes(e)) continue;
+    front ? arr.unshift(e) : arr.push(e);
+  }
+  kick();
+}
+function startBulk() {
+  if (!aiOn()) return;
+  S.words.forEach(e => { e._dictTried = 0; });
+  Q.bulk = S.words.filter(needs); Q.bulkOn = true; Q.err = ''; Q.fail = 0;
+  updateBar(); kick();
+}
+function pauseBulk() { Q.bulkOn = false; updateBar(); }
+
+async function kick() {
+  if (Q.running) return; Q.running = true;
+  try {
+    while (true) {
+      const batch = []; let isPrio = true;
+      const take = (arr, n) => { while (arr.length && batch.length < n) { const e = arr.shift(); if (needs(e) && !batch.includes(e)) batch.push(e); } };
+      take(Q.prio, BATCH_PRIO);
+      if (!batch.length && Q.bulkOn) { isPrio = false; take(Q.bulk, BATCH_BULK); }
+      if (!batch.length) break;
+      try { await enrichBatch(batch); Q.err = ''; }
+      catch (err) { Q.err = String(err.message || err).slice(0, 90); }
+      for (const e of batch) if (needs(e)) (isPrio ? Q.prio : Q.bulk)[isPrio ? 'unshift' : 'push'](e);
+      updateBar();
+      await sleep(isPrio ? 20 : BULK_GAP);
+    }
+  } finally {
+    Q.running = false;
+    if (Q.bulkOn && !Q.bulk.length) {
+      Q.bulkOn = false;
+      const left = S.words.filter(needs).length;
+      if (!prepActive) bot(left ? `<span class="muted small">📖 后台补全结束，还有 ${left} 个词在在线词典里没查到（可点上方“重试”）。</span>` : '<span class="muted small">✅ 整本词书的英美音标 / 例句已全部补全，并保存在本机。</span>');
+    }
+    updateBar();
+  }
+}
+async function enrichBatch(batch) {
+  const CONC = 4;
+  for (let i = 0; i < batch.length; i += CONC) {
+    await Promise.all(batch.slice(i, i + CONC).map(e => dictEnrich(e)));
+  }
+  if (batch.every(e => !e.uk && !e.us && !e.examples.length)) throw new Error('在线词典没有返回可用内容');
+}
+function waitFor(e, ms) {
+  return new Promise(res => {
+    const t0 = Date.now();
+    const id = setInterval(() => { if (!needs(e) || Date.now() - t0 > ms) { clearInterval(id); res(); } }, 250);
+  });
+}
+function updateBar() {
+  updatePrep();
+  const bar = $('#enrichBar'), total = S.words.length;
+  const todo = S.words.filter(needs).length;
+  if (!aiOn() || !total || prepActive || (todo === 0 && !Q.running)) { bar.classList.add('hidden'); return; }
+  bar.classList.remove('hidden');
+  const done = total - todo;
+  $('#enrichFill').style.width = (done / total * 100) + '%';
+  const btn = $('#btnEnrich');
+  if (Q.bulkOn) { $('#enrichTxt').textContent = `📖 后台补全 ${done}/${total}${Q.err ? '（遇到问题，自动重试：' + Q.err.slice(0, 40) + '）' : ''}`; btn.textContent = '暂停'; }
+  else if (Q.err) { $('#enrichTxt').textContent = `⏸ 已暂停：${Q.err}（${done}/${total}）`; btn.textContent = '重试'; }
+  else { $('#enrichTxt').textContent = `📖 还有 ${todo} 个词缺英美音标 / 例句（${done}/${total}）`; btn.textContent = '后台补全'; }
+}
+$('#btnEnrich').addEventListener('click', () => { Q.bulkOn ? pauseBulk() : startBulk(); });
+
+/* ===================== 其他 AI 功能 ===================== */
+async function askAI(q) {
+  if (!hasAI()) {
+    bot('这个问题需要 AI 来回答。点右上角 <b>⚙️ AI 设置</b> 填入 API Key 后，就可以随时提问了。<br><span class="muted small">没有 Key 也不影响抽查、提示、判题和记录。</span>');
+    return;
+  }
+  const done = typing();
+  try {
+    const e = S.cur;
+    const ctx = e ? `\n\n当前词条：\n单词：${e.word}\n音标：${[e.uk && '英 ' + e.uk, e.us && '美 ' + e.us].filter(Boolean).join(' ') || e.phonetic || '无'}\n释义：${e.meaning}\n例句：${e.examples.map(x => x.en + ' ' + x.zh).join(' | ') || '无'}\n短语：${e.phrases.map(x => x.en + ' ' + x.zh).join(' | ') || '无'}\n用户是否已看到答案：${S.phase === 'revealed' ? '是' : '否'}` : '';
+    const sys = '你是用户的英语单词复习助手。用简体中文回答，简洁准确，必要时给英文例句。若问题和当前词条有关请结合词条信息。如果用户尚未看到答案，不要直接泄露当前单词的释义，除非用户明确要求。' + ctx;
+    const ans = await callLLM(sys, [...S.chatCtx.slice(-8), { role: 'user', content: q }], 700, 30000);
+    S.chatCtx.push({ role: 'user', content: q }, { role: 'assistant', content: ans });
+    done();
+    bot(esc(ans).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>'));
+  } catch (err) { done(); bot(`出错了：${esc(err.message)}`); }
+}
+async function aiJudge(e, ans) {
+  const txt = await callLLM('你是英语老师，判断学生写的中文释义是否正确。学生回答只要与标准释义中任一义项意思相同或非常接近（同义表达）就算对。只输出 JSON：{"correct":true或false,"note":"一句话说明"}',
+    [{ role: 'user', content: `单词：${e.word}\n标准释义：${e.meaning}\n学生回答：${ans}` }], 200, 12000);
+  return JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
+}
+
+/* ===================== 判题 ===================== */
+const normZh = s => s.toLowerCase().replace(/[\s\u3000"'“”‘’。！？!?.…~〜]/g, '');
+function segs(s) {
+  return s.replace(/[（(][^）)]*[）)]/g, ' ').replace(/[【\[][^】\]]*[】\]]/g, ' ')
+    .replace(/\b(?:n|v|vt|vi|vlink|adj|adv|prep|conj|pron|art|det|num|int|interj|aux|modal|abbr|pl|phr)\s*\./gi, ' ')
+    .split(/[;；,，、\/\n|\s]+/).map(normZh).filter(Boolean);
+}
+function localJudge(e, ans) {
+  const ms = segs(e.meaning), us = segs(ans);
+  for (const u of us) for (const m of ms) {
+    if (u === m) return true;
+    if (u.length >= 2 && m.length >= 2 && (m.includes(u) || u.includes(m))) return true;
+  }
+  return false;
+}
+const normEn = s => s.toLowerCase().replace(/\s+/g, ' ').replace(/[^a-z' \-]/g, '').trim();
+function lev(a, b) {
+  const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+    dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return dp[a.length][b.length];
+}
+function judgeEn(e, ans) {
+  const a = normEn(ans);
+  const alts = [e.word, ...e.word.split(/[\/(),;]/)].map(normEn).filter(Boolean);
+  if (alts.includes(a)) return { ok: true };
+  const close = a && alts.some(w => w.length >= 4 && lev(a, w) <= 1);
+  return { ok: false, note: close ? '拼写只差一点点' : '' };
+}
+
+/* ===================== 错题本 / 星标本 ===================== */
+function recordWrong(e) {
+  const k = e.word.toLowerCase(), o = SP.wrong[k];
+  if (o) { o.n++; o.ok = 0; o.last = Date.now(); o.entry = cleanEntry(e); }
+  else SP.wrong[k] = { entry: cleanEntry(e), n: 1, ok: 0, from: S.kind === 'normal' ? S.fileName : (S.kind === 'focus' ? '重点复习' : ''), last: Date.now() };
+  scheduleSave(); updateBookUI();
+}
+function undoWrong(e) {
+  const k = e.word.toLowerCase(), o = SP.wrong[k]; if (!o) return;
+  o.n--; if (o.n <= 0) delete SP.wrong[k];
+  scheduleSave(); updateBookUI();
+}
+// 在错题本里答对：连续 2 次答对就移出
+function markMastered(e) {
+  const k = e.word.toLowerCase(), o = SP.wrong[k]; if (!o) return;
+  o.ok = (o.ok || 0) + 1;
+  if (o.ok >= 2) {
+    delete SP.wrong[k];
+    if (S.kind === 'wrong') {
+      S.words = S.words.filter(w => w.word.toLowerCase() !== k); S.deck = S.deck.filter(w => w.word.toLowerCase() !== k);
+    }
+    bot(`<span class="muted small">🎉 「${esc(e.word)}」连续答对 2 次，已移出错题本。</span>`);
+  }
+  scheduleSave(); updateBookUI();
+}
+function findEntry(word) {
+  const k = word.toLowerCase();
+  if (S.cur && S.cur.word.toLowerCase() === k) return S.cur;
+  return S.words.find(w => w.word.toLowerCase() === k) || S.log.find(x => x.e && x.e.word.toLowerCase() === k)?.e || (SP.wrong[k] && SP.wrong[k].entry) || (SP.star[k] && SP.star[k].entry) || null;
+}
+function toggleStar(word) {
+  const k = word.toLowerCase();
+  if (SP.star[k]) {
+    delete SP.star[k];
+    if (S.kind === 'star') { S.words = S.words.filter(w => w.word.toLowerCase() !== k); S.deck = S.deck.filter(w => w.word.toLowerCase() !== k); }
+  } else {
+    const e = findEntry(word); if (!e) return false;
+    SP.star[k] = { entry: cleanEntry(e), from: S.kind === 'normal' ? S.fileName : (S.kind === 'focus' ? '重点复习' : ''), at: Date.now() };
+  }
+  scheduleSave(); updateBookUI();
+  return !!SP.star[k];
+}
+
+/* ===================== 重点复习 ===================== */
+async function startFocusReview() {
+  const map = new Map();
+  const add = e => { if (!e) return; const k = String(e.word).toLowerCase(); if (!map.has(k)) map.set(k, normEntry(e)); };
+  Object.values(SP.wrong).forEach(o => add(o.entry));
+  Object.values(SP.star).forEach(o => add(o.entry));
+  const list = [...map.values()];
+  const wn = Object.keys(SP.wrong).length, sn = Object.keys(SP.star).length;
+  if (!list.length) { bot('❌ 错题本和 ⭐ 星标本都还是空的。先去做几道题，答错或收藏的词会自动进来。'); return; }
+  await flushSave();
+  Q.prio = []; Q.bulk = []; Q.bulkOn = false; Q.err = ''; Q.fail = 0; prepActive = false;
+  S.bookId = 'focus'; S.kind = 'focus'; S.bmode = 'local';
+  S.fileName = '🎯 重点复习';
+  S.words = list;
+  S.words.forEach(applyCache);
+  resetRound(); updateBookUI();
+  $('#chat').innerHTML = '';
+  showView('chat');
+  bot(`<b>🎯 重点复习 · 共 ${list.length} 个词</b><br><span class="muted small">来自 ❌ 错题本（${wn} 个）和 ⭐ 星标本（${sn} 个），已去重合并。<br>输入 <b>A</b>（英→中）或 <b>B</b>（中→英）开始；答对的错词会自动减少错次，连对 2 次即移出错题本。</span>`);
+  updateBar();
+  input.focus();
+}
+$('#btnFocus').addEventListener('click', () => startFocusReview());
+
+/* ===================== 出题流程 ===================== */
+function startMode(m) {
+  if (!S.words.length) { bot('这里还没有单词。先导入词书，或在其他词书里答错 / 收藏一些词。'); return; }
+  if (S.phase === 'ended') resetRound();
+  if (S.phase === 'asking' && S.cur) S.deck.unshift(S.cur);
+  S.mode = m;
+  bot(`<span class="muted">已切换到模式 ${m}：${m === 'A' ? '我给英文，你答中文' : '我给中文，你拼英文'}</span>`);
+  nextQuestion();
+}
+function nextQuestion() {
+  if (!S.words.length) { S.cur = null; S.phase = 'idle'; bot('这个本子已经清空了 🎉'); return; }
+  const prev = S.cur;
+  if (!S.deck.length) { S.deck = shuffle([...S.words]); bot('<span class="muted">词库已经全部抽完一遍，重新洗牌继续～</span>'); }
+  if (S.deck.length > 1 && S.deck[S.deck.length - 1] === prev) [S.deck[0], S.deck[S.deck.length - 1]] = [S.deck[S.deck.length - 1], S.deck[0]];
+  S.cur = S.deck.pop(); S.hintLevel = 0; S.phase = 'asking';
+  const e = S.cur, nx = S.deck[S.deck.length - 1];
+  if (aiOn()) { enqueue([e], true, true); enqueue(S.deck.slice(-2).reverse(), true); }
+  else { getPhonetics(e); if (nx) getPhonetics(nx); }
+  if (S.mode === 'A') bot(`<span class="tag">A · 英 → 中</span><div class="big">${esc(e.word)}</div><div class="muted small">输入中文意思作答 · 1 = 语境提示 · 2 = 看完整答案</div>`);
+  else bot(`<span class="tag">B · 中 → 英</span><div class="big zh">${nl(e.meaning)}</div><div class="muted small">拼写出英文单词 · 1 = 提示（音标等）· 2 = 看完整答案</div>`);
+}
+function renderHintA(ex, ph, ai, failed, noData) {
+  if (!ex.length && !ph.length) return `<span class="tag">语境提示</span><div class="muted">${failed ? '在线词典暂时没取到这个词的例句，稍后再输入 <b>1</b> 重试；也可以先猜，或输入 <b>2</b> 看答案。' : noData ? '这个词在词库和在线词典里都没有例句。你可以先猜，或输入 <b>2</b> 看答案。<br>想要自动补全，可以点右上角“⚡ 升级为 AI 版”。' : '目前没有可用例句或短语。你可以先猜，或输入 <b>2</b> 看答案。'}</div>`;
+  let h = '<span class="tag">语境提示（不含中文）</span>';
+  if (ex.length) h += `<div class="sec"><div class="lab">例句</div>${ex.map(s => `<div class="ex">${esc(s)}</div>`).join('')}</div>`;
+  if (ph.length) h += `<div class="sec"><div class="lab">短语</div><ul class="pl">${ph.map(s => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
+  if (ai) h += '<div class="aitag">📖 提示内容由 DictionaryAPI.dev 在线词典补充</div>';
+  h += '<div class="muted small">想好后输入中文意思，或输入 2 看答案</div>';
+  return h;
+}
+const hintData = e => [e.examples.map(x => x.en).filter(Boolean).slice(0, 2), e.phrases.map(x => x.en).filter(Boolean).slice(0, 2)];
+async function hintA() {
+  const e = S.cur;
+  if (S.hintLevel > 0) { bot('语境提示已经给过啦，结合上面的例句 / 短语再猜猜；还不确定就输入 <b>2</b> 看答案。'); return; }
+  S.hintLevel = 1;
+  const [ex, ph] = hintData(e);
+  const aiUsed = !!(e._ai && (e._ai.includes('examples') || e._ai.includes('phrases')));
+  if (ex.length || ph.length) { bot(renderHintA(ex, ph, aiUsed)); return; }
+  if (!aiOn()) { bot(renderHintA([], [], false, false, true)); return; }
+  const msg = bot('<span class="tag">语境提示</span><div class="muted">📖 正在从在线词典取例句（后台已在处理），你也可以直接猜，或输入 <b>2</b> 看答案。</div>');
+  e._dictTried = 0; enqueue([e], true, true);
+  waitFor(e, 30000).then(() => {
+    const [ex2, ph2] = hintData(e);
+    if (!ex2.length && !ph2.length) S.hintLevel = 0;
+    if (msg.isConnected) msg.querySelector('.bubble').innerHTML = renderHintA(ex2, ph2, !!(e._ai && e._ai.length), true);
+  });
+}
+function pattern(word, k) {
+  let shown = 0;
+  return [...word].map(ch => { if (/[A-Za-z]/.test(ch)) { if (shown < k) { shown++; return ch; } return '_'; } return ch === ' ' ? '／' : ch; }).join(' ');
+}
+async function hintB() {
+  const e = S.cur; S.hintLevel++;
+  const n = (e.word.match(/[A-Za-z]/g) || []).length;
+  const k = Math.min(S.hintLevel, Math.max(1, n - 1));
+  const ph = phHtml(e);
+  if (!(e.uk && e.us)) getPhonetics(e).then(ch => { if (ch) bot(`<span class="muted small">已查到 ${esc(e.word)} 的音标：</span>${phHtml(e)}`); });
+  let h = `<span class="tag">提示 ${S.hintLevel}</span>`;
+  h += ph ? `<div>音标：${ph}</div>` : '<div class="muted">（暂时没有音标，查到后会另外提示）</div>';
+  h += `<div>共 ${n} 个字母：<span class="mono">${esc(pattern(e.word, k))}</span></div>`;
+  h += '<div class="muted small">再输入 1 会多露出一个字母 · 输入 2 看答案</div>';
+  bot(h);
+}
+async function submit(ans) {
+  const e = S.cur; let ok = false, note = '';
+  if (S.mode === 'A') {
+    ok = localJudge(e, ans);
+    if (!ok && hasAI()) {
+      const d = typing();
+      try { const r = await aiJudge(e, ans); ok = !!r.correct; note = (ok ? 'AI 判定为同义表达。' : '') + (r.note || ''); } catch (_) {}
+      d();
+    }
+  } else { const r = judgeEn(e, ans); ok = r.ok; note = r.note || ''; }
+  await reveal(ok ? 'correct' : 'wrong', ans, note);
+}
+async function reveal(kind, ans = '', note = '') {
+  const e = S.cur;
+  let head, cls;
+  if (kind === 'correct') { head = '✅ 正确'; cls = 'ok'; }
+  else if (kind === 'wrong') { head = '❌ 不对' + (ans ? `　你的回答：${esc(ans)}` : ''); cls = 'bad'; }
+  else { head = '👀 完整答案'; cls = 'info'; }
+  if (note) head += `<span class="note">${esc(note)}</span>`;
+  const entry = { word: e.word, meaning: e.meaning, ok: kind === 'correct', giveup: kind === 'giveup', mode: S.mode, e, rec: false };
+  S.log.push(entry);
+  S.phase = 'revealed';
+  const tail = '<div class="muted small">回车 / 点“下一个”继续；也可以直接向我提问。</div>';
+  const msg = bot(cardHtml(e, head, cls) + tail);
+  const refresh = () => { if (msg.isConnected) msg.querySelector('.bubble').innerHTML = cardHtml(e, head, cls) + tail; };
+  if (kind === 'correct') { if (S.kind === 'wrong' || S.kind === 'focus') markMastered(e); }
+  else { recordWrong(e); entry.rec = true; }
+  if (aiOn() && needs(e)) {
+    enqueue([e], true, true);
+    waitFor(e, 30000).then(async () => { if (!(e.uk && e.us)) await getPhonetics(e); refresh(); });
+  } else if (!(e.uk && e.us)) getPhonetics(e).then(ch => { if (ch) refresh(); });
+}
+
+/* ===================== 近义词 / 报告 ===================== */
+function trySynonym(t) {
+  const m = t.match(/^(.+?)\s*(?:是|为|互为)?\s*近义[词语]/);
+  if (!m) return false;
+  const ws = m[1].split(/\s*(?:和|与|跟|及|、|,|，|\/|\band\b)\s*/i).map(s => s.replace(/^["'“”‘’\s]+|["'“”‘’\s]+$/g, '').trim()).filter(Boolean);
+  if (ws.length < 2) return false;
+  const key = ws.map(w => w.toLowerCase()).sort().join('|');
+  if (S.synonyms.some(g => g.key === key)) bot(`这组近义词已经记过了：${esc(ws.join(' ＝ '))}`);
+  else { S.synonyms.push({ key, words: ws }); bot(`📝 已记录近义词：<b>${esc(ws.join(' ＝ '))}</b>`); }
+  return true;
+}
+
+function endRound() {
+  const right = S.log.filter(x => x.ok).length, wrong = S.log.length - right;
+  const wm = new Map();
+  for (const x of S.log) if (!x.ok) { const o = wm.get(x.word) || { n: 0, g: 0, meaning: x.meaning, total: SP.wrong[x.word.toLowerCase()]?.n || 0 }; o.n++; if (x.giveup) o.g++; o.total = SP.wrong[x.word.toLowerCase()]?.n || o.total; wm.set(x.word, o); }
+  const pct = S.log.length ? Math.round(right / S.log.length * 100) : 0;
+  const wrongList = [...wm.entries()];
+  const starWords = S.words.filter(e => isStarred(e.word));
+  let txt = `📊 本轮复习报告（${S.fileName}）\n共 ${S.log.length} 题：对 ${right} 个，错 ${wrong} 个（正确率 ${pct}%）\n`;
+  txt += wrongList.length ? `\n错词（${wrongList.length} 个）：\n` + wrongList.map(([w, o], i) => `${i + 1}. ${w} — ${o.meaning.replace(/\n/g, ' ')}（本轮错 ${o.n} 次${o.g ? '，含看答案' : ''}；错题本累计 ${o.total} 次）`).join('\n') + '\n' : '\n没有错词 🎉\n';
+  txt += starWords.length ? `\n⭐ 星标重点词：\n` + starWords.map(e => `- ${e.word} — ${e.meaning.replace(/\n/g, ' ')}`).join('\n') + '\n' : '';
+  txt += S.synonyms.length ? `\n近义词记录：\n` + S.synonyms.map(g => '- ' + g.words.join(' ＝ ')).join('\n') + '\n' : '\n近义词记录：无\n';
+  S.lastReport = txt;
+
+  let h = `<div class="report"><h3>📊 本轮复习报告</h3>
+  <div class="row"><span class="pill" style="background:var(--ok-bg);color:var(--ok)">对 ${right}</span><span class="pill" style="background:var(--bad-bg);color:var(--bad)">错 ${wrong}</span><span class="pill" style="background:var(--brand-soft);color:var(--brand)">共 ${S.log.length} 题 · ${pct}%</span></div>`;
+  h += wrongList.length ? `<div class="lab" style="margin-top:8px">错词（${wrongList.length} 个，已自动加入 ❌ 错题本）</div><ol>${wrongList.map(([w, o]) => `<li><b>${esc(w)}</b> <span class="muted">${esc(o.meaning.replace(/\n/g, ' '))}</span> <span class="cnt-bad" title="错题本累计">${o.total}</span>${o.n > 1 ? ` <span class="muted">（本轮错 ${o.n} 次）</span>` : ''}${o.g ? ' <span class="muted">（含看答案）</span>' : ''}</li>`).join('')}</ol>` : '<div style="margin-top:8px">没有错词 🎉</div>';
+  h += starWords.length ? `<div class="lab" style="margin-top:8px">⭐ 星标重点词</div><ul>${starWords.map(e => `<li><b>${esc(e.word)}</b> <span class="muted">${esc(e.meaning.replace(/\n/g, ' '))}</span></li>`).join('')}</ul>` : '';
+  h += S.synonyms.length ? `<div class="lab" style="margin-top:8px">近义词记录</div><ul>${S.synonyms.map(g => `<li>${esc(g.words.join(' ＝ '))}</li>`).join('')}</ul>` : '<div class="muted" style="margin-top:8px">近义词记录：无</div>';
+  h += `<div class="acts"><button class="btn" data-act="copy">复制报告</button><button class="btn primary" data-act="again">开始新一轮</button><button class="btn" data-act="focus">🎯 重点复习</button></div></div>`;
+  S.phase = 'ended'; S.cur = null;
+  bot(h);
+}
+chat.addEventListener('click', async e => {
+  const sb = e.target.closest('[data-star-word]');
+  if (sb) { const on = toggleStar(sb.dataset.starWord); sb.textContent = on ? '⭐ 已收藏' : '☆ 收藏单词'; return; }
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const act = b.dataset.act;
+  if (act === 'copy') { navigator.clipboard?.writeText(S.lastReport).then(() => { b.textContent = '已复制 ✓'; }); }
+  if (act === 'again') bot('输入 <b>A</b> 或 <b>B</b> 开始新一轮（会重新洗牌、清空本轮记录）。');
+  if (act === 'focus') {
+    if (S.kind === 'wrong' || S.kind === 'star') {
+      // 用当前这本本子开始复习
+      S.phase = 'idle'; S.cur = null; S.deck = shuffle([...S.words]); S.log = [];
+      startMode(S.mode || 'A');
+      bot(`<span class="muted small">开始重点复习 ${S.words.length} 个词。</span>`);
+    } else {
+      startFocusReview();
+    }
+  }
+  if (act === 'clear') {
+    $('#btnDelBook').click();
+  }
+});
+
+/* ===================== 指令路由 ===================== */
+async function route(t) {
+  if (t === '0') return endRound();
+  if (t === '星标') { bot('请输入“星标 单词”，例如：星标 abandon（再输入一次会取消收藏）。也可以点答案卡片上的“☆ 收藏单词”。'); return; }
+  if (/^(?:星标|收藏)\s+.+/i.test(t)) {
+    const w = t.replace(/^(?:星标|收藏)\s+/i, '').trim();
+    const e = findEntry(w);
+    if (!e) { const near = S.words.filter(x => x.word.toLowerCase().includes(w.toLowerCase()) || w.toLowerCase().includes(x.word.toLowerCase())).slice(0, 5); bot(`当前本子里没有完全匹配的单词“${esc(w)}”。${near.length ? '你可能想找：' + near.map(x => esc(x.word)).join('、') : '请检查拼写。'}`); return; }
+    const on = toggleStar(e.word); bot(on ? `⭐ 已收藏 <b>${esc(e.word)}</b>，可在“⭐ 星标本”里复习。` : `已取消收藏 <b>${esc(e.word)}</b>。`); return;
+  }
+  if (/^[aA]$/.test(t)) return startMode('A');
+  if (/^[bB]$/.test(t)) return startMode('B');
+  if (trySynonym(t)) return;
+  if (/^算对$|^算错$/.test(t)) {
+    const last = S.log[S.log.length - 1];
+    if (!last) { bot('还没有可修正的题目。'); return; }
+    const want = t === '算对';
+    if (last.ok === want) { bot(`上一题（${esc(last.word)}）本来就是“${want ? '对' : '错'}”。`); return; }
+    last.ok = want; last.giveup = false;
+    if (want && last.rec) { undoWrong(last.e); last.rec = false; }
+    if (!want && !last.rec) { recordWrong(last.e); last.rec = true; }
+    if (want && (S.kind === 'wrong' || S.kind === 'focus')) markMastered(last.e);
+    bot(`已把上一题（<b>${esc(last.word)}</b>）改为“${want ? '对' : '错'}”${want ? '，并从错题本撤销本次记录' : '，并加入错题本'}。`); return;
+  }
+  if (S.phase === 'idle') { bot(S.words.length ? '先输入 <b>A</b>（英→中）或 <b>B</b>（中→英）开始。' : '这里还没有单词。先导入词书，或在其他词书里答错 / 收藏一些词。'); return; }
+  if (S.phase === 'ended') { bot('本轮已结束。输入 <b>A</b> 或 <b>B</b> 开始新一轮。'); return; }
+  if (S.phase === 'asking') {
+    if (t === '1') return S.mode === 'A' ? hintA() : hintB();
+    if (t === '2') return reveal('giveup');
+    if (/^[?？]/.test(t)) return askAI(t.replace(/^[?？]\s*/, '') || '请讲讲这个词');
+    return submit(t);
+  }
+  if (S.phase === 'revealed') {
+    if (/^(下一个|下一题|next|n)$/i.test(t)) return nextQuestion();
+    if (t === '1' || t === '2') { bot('这题答案已经显示啦，回车或点“下一个”继续～'); return; }
+    return askAI(t.replace(/^[?？]\s*/, ''));
+  }
+}
+async function handle(raw) {
+  if (S.busy) return;
+  const t = raw.trim();
+  if (!t) { if (S.phase === 'revealed') { S.busy = true; try { nextQuestion(); } finally { S.busy = false; } } return; }
+  me(t); S.busy = true;
+  try { await route(t); } catch (err) { bot('出错了：' + esc(err.message)); }
+  finally { S.busy = false; input.focus(); }
+}
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); const v = input.value; input.value = ''; handle(v); }
+});
+$('#btnSend').addEventListener('click', () => { const v = input.value; input.value = ''; handle(v); });
+document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => handle(c.dataset.cmd)));
+
+/* ===================== 设置 ===================== */
+const dlg = $('#dlg');
+const PROVIDERS = {
+  gemini: { model: 'gemini-3.8-flash', hint: 'Key 在 aistudio.google.com/app/apikey 免费获取。仅用于自由提问 / 语义判题，词书补全已改用免费在线词典。' },
+  anthropic: { model: 'claude-sonnet-5-5', hint: 'Anthropic 没有免费额度，需要付费账号的 Key。' },
+  openai: { model: '', hint: '填服务商的接口地址和模型名。例：Groq 是 https://api.groq.com/openai/v1；OpenRouter 是 https://openrouter.ai/api/v1。' },
+  doubao: { model: 'doubao-seed-evolving', hint: '火山方舟使用 Bearer Key。Base URL 默认 https://ark.cn-beijing.volces.com/api/v3；模型可填模型名或 ep- 接入点 ID。' }
+};
+function syncProviderUI(resetModel) {
+  const p = $('#provider').value;
+  $('#baseUrlRow').classList.toggle('hidden', p !== 'openai' && p !== 'doubao');
+  if (p === 'doubao' && !$('#baseUrl').value) $('#baseUrl').value = 'https://ark.cn-beijing.volces.com/api/v3';
+  $('#modelHint').textContent = PROVIDERS[p].hint;
+  $('#model').placeholder = PROVIDERS[p].model || '模型名';
+  if (resetModel) $('#model').value = PROVIDERS[p].model;
+}
+$('#provider').addEventListener('change', () => syncProviderUI(true));
+$('#btnSettings').addEventListener('click', () => {
+  $('#provider').value = S.settings.provider; $('#apiKey').value = S.settings.apiKey;
+  $('#model').value = S.settings.model; $('#baseUrl').value = S.settings.baseUrl || '';
+  syncProviderUI(false); dlg.showModal();
+});
+$('#dlgCancel').addEventListener('click', () => dlg.close());
+$('#dlgSave').addEventListener('click', () => {
+  const p = $('#provider').value;
+  S.settings.provider = p; S.settings.apiKey = $('#apiKey').value.trim();
+  S.settings.model = $('#model').value.trim() || PROVIDERS[p].model; S.settings.baseUrl = $('#baseUrl').value.trim();
+  store('vq_settings', S.settings); dlg.close();
+  Q.err = ''; Q.fail = 0;
+  updateBookUI(); updateBar();
+  bot(S.settings.apiKey ? `<span class="muted small">AI 已设置：${esc(p)} · ${esc(S.settings.model)}。仅用于自由提问和语义判题。${S.kind === 'normal' && S.bmode === 'local' ? '想让这本词书提前补全英美音标 / 例句，可点右上角“⚡ 升级为 AI 版”。' : ''}</span>` : '<span class="muted small">已清除 API Key，AI 提问 / 语义判题功能关闭（词书补全不受影响）。</span>');
+});
+
+/* ===================== 启动 ===================== */
+(async function init() {
+  const st = load('vq_settings'); if (st) { Object.assign(S.settings, st); if (!st.provider && st.apiKey) S.settings.provider = 'anthropic'; }
+  let dbOk = true;
+  try { await DB.open(); navigator.storage?.persist?.(); } catch (e) { dbOk = false; }
+  S.books = (await DB.get('books')) || [];
+  CACHE = (await DB.get('cache')) || {};
+  SP.wrong = (await DB.get('wrongbook')) || {};
+  SP.star = (await DB.get('starbook')) || {};
+
+  if (!S.books.length) {
+    const old = load('vq_words');
+    if (old && old.words && old.words.length) {
+      Object.entries(load('vq_ai_cache') || {}).forEach(([k, v]) => { CACHE[k] = CACHE[k] || v; });
+      scheduleCache();
+      const id = newId();
+      S.books.push({ id, name: old.fileName || '上次的词库', count: old.words.length, created: Date.now(), mode: 'local' });
+      await DB.set('book:' + id, { words: old.words.map(cleanEntry), stars: load('vq_stars') || [] });
+      await DB.set('books', S.books);
+      ['vq_words', 'vq_stars', 'vq_ai_cache'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+    }
+  }
+
+  if (S.books.length) {
+    let last = null; try { last = localStorage.getItem('vq_last'); } catch (e) {}
+    const ok = last === 'wrong' || last === 'star' || S.books.some(b => b.id === last);
+    await openBook(ok ? last : S.books[0].id);
+    bot(`<span class="muted small">已自动载入「${esc(S.fileName)}」；右上角下拉框可切换词书，也可以进入 ⭐ 星标本 / ❌ 错题本复习，或点「🎯 重点复习」合并两本本子集中攻克。</span>`);
+  } else { updateBookUI(); showView('setup'); }
+  if (!dbOk) bot('<span class="muted small">⚠️ 当前浏览器禁用了本地数据库（可能是隐私模式或直接打开本地文件），词书只在本次打开期间有效。建议把页面托管到网上或换个浏览器。</span>');
+})();
+</script>
+</body>
+</html>
