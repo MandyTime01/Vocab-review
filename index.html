@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>单词抽查 Demo - PDF导入 + 有道批量预查</title>
+<style>
+:root {
+  --bg: #f4f5f8; --card: #fff; --text: #1f2430; --muted: #6b7280;
+  --line: #e3e6ec; --brand: #4f6ef7; --brand-soft: #eef1ff;
+  --ok: #15803d; --ok-bg: #e6f6ec; --bad: #c62828; --bad-bg: #fdecec;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161b; --card: #1d2027; --text: #e8eaf0; --muted: #9097a5;
+    --line: #2c313b; --brand: #7b93ff; --brand-soft: #232846;
+    --ok: #4ade80; --ok-bg: #16301f; --bad: #f87171; --bad-bg: #3a1b1b;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  display: flex; flex-direction: column; height: 100vh;
+}
+header {
+  display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+  background: var(--card); border-bottom: 1px solid var(--line); flex-wrap: wrap;
+}
+header h1 { font-size: 16px; margin: 0; flex: 1; }
+.btn {
+  border: 1px solid var(--line); background: var(--card); color: var(--text);
+  padding: 6px 12px; border-radius: 8px; cursor: pointer; font: inherit;
+}
+.btn:hover { border-color: var(--brand); color: var(--brand); }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+main { flex: 1; display: flex; flex-direction: column; max-width: 880px; margin: 0 auto; width: 100%; min-height: 0; }
+#chat { flex: 1; overflow: auto; padding: 16px; }
+.msg { display: flex; margin: 10px 0; }
+.msg.me { justify-content: flex-end; }
+.bubble { max-width: 90%; padding: 12px 16px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); word-break: break-word; }
+.msg.me .bubble { background: var(--brand); border-color: var(--brand); color: #fff; }
+.tag { display: inline-block; font-size: 12px; background: var(--brand-soft); color: var(--brand); padding: 1px 8px; border-radius: 99px; margin-bottom: 6px; }
+.big { font-size: 28px; font-weight: 700; margin: 4px 0; }
+.big.zh { font-size: 22px; }
+.ph { color: var(--brand); }
+.lab2 { font-size: 12px; color: var(--muted); }
+.muted { color: var(--muted); }
+.small { font-size: 12px; margin-top: 6px; }
+.sec { margin-top: 10px; }
+.lab { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+.ex { padding-left: 10px; border-left: 3px solid var(--line); margin: 4px 0; }
+ul.pl { margin: 2px 0; padding-left: 20px; }
+#bar { padding: 10px 16px 16px; background: var(--bg); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.chip { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 99px; padding: 4px 14px; font-size: 13px; cursor: pointer; }
+.chip:hover { border-color: var(--brand); color: var(--brand); }
+.inrow { display: flex; gap: 8px; }
+.inrow input { flex: 1; padding: 10px 12px; font-size: 15px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
+.hidden { display: none !important; }
+.progress { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; margin-top: 4px; }
+.progress-fill { height: 100%; background: var(--brand); width: 0; transition: width .3s; }
+.status-bar { display: flex; align-items: center; gap: 10px; padding: 8px 16px; background: var(--brand-soft); font-size: 13px; border-bottom: 1px solid var(--line); }
+.err { color: var(--bad); margin-top: 8px; font-size: 13px; }
+/* 导入弹窗 */
+#importModal {
+  position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 99;
+  display: flex; align-items: center; justify-content: center;
+}
+#importModal.hidden { display: none; }
+.import-card {
+  background: var(--card); border-radius: 14px; padding: 22px;
+  max-width: 640px; width: 92%; max-height: 86vh; overflow: auto;
+  border: 1px solid var(--line);
+}
+.import-card h3 { margin: 0 0 6px; }
+.import-card textarea {
+  width: 100%; height: 160px; padding: 10px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--bg); color: var(--text);
+  font: 13px/1.6 ui-monospace, Menlo, Consolas, monospace; resize: vertical;
+}
+.acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📖 单词抽查 Demo</h1>
+  <button class="btn" id="btnImport">📥 导入 PDF / 文本</button>
+  <button class="btn primary" id="btnBatchFetch">批量预查询</button>
+  <span id="cacheInfo" class="muted small"></span>
+</header>
+
+<div class="status-bar hidden" id="statusBar">
+  <span id="statusText">准备中…</span>
+  <div class="progress" style="flex:1"><div class="progress-fill" id="progressFill"></div></div>
+  <button class="btn" id="btnPauseResume">暂停</button>
+</div>
+
+<main>
+  <div id="chat">
+    <div class="msg"><div class="bubble">
+      <b>👋 欢迎使用单词抽查 Demo</b><br><br>
+      1. 点击「📥 导入 PDF / 文本」上传你的 PDF 词库（或粘贴单词列表）<br>
+      2. 点击「批量预查询」在后台通过有道词典接口获取音标、释义、例句、短语<br>
+      3. 在下方输入 <b>A</b> 开始抽查（英→中），然后：<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<b>1</b> = 只看英文线索（音标 + 英文例句 + 英文短语，<b>不含中文释义</b>）<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<b>2</b> = 查看完整答案（单词 + 释义 + 音标 + 例句 + 短语，含中文）<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<b>下一个</b> = 进入下一题
+    </div></div>
+  </div>
+  <div id="bar">
+    <div class="chips">
+      <button class="chip" data-cmd="A">A 英→中</button>
+      <button class="chip" data-cmd="B">B 中→英</button>
+      <button class="chip" data-cmd="1">1 英文线索</button>
+      <button class="chip" data-cmd="2">2 完整答案</button>
+      <button class="chip" data-cmd="下一个">下一个 ⏎</button>
+    </div>
+    <div class="inrow">
+      <input type="text" id="input" placeholder="输入答案或指令，回车发送" autocomplete="off" spellcheck="false">
+      <button class="btn primary" id="btnSend">发送</button>
+    </div>
+  </div>
+</main>
+
+<!-- 导入弹窗 -->
+<div id="importModal" class="hidden">
+  <div class="import-card">
+    <h3>📥 导入词库</h3>
+    <div class="muted small" style="margin-bottom:12px">
+      支持上传 PDF / TXT / CSV，也可以直接粘贴文本。<br>
+      解析器会自动从 PDF 中提取所有英文单词，忽略中文释义和行号。<br>
+      <b>注意：</b>PDF 需为可复制文字的版本，扫描图片版无法解析。
+    </div>
+
+    <label class="btn" style="display:inline-block">
+      📄 选择 PDF / TXT / CSV 文件
+      <input type="file" id="importFile" accept=".pdf,.txt,.csv,.tsv" class="hidden">
+    </label>
+    <span class="muted small" id="importFileInfo"></span>
+
+    <div style="margin-top:12px">
+      <div class="lab">或直接粘贴文本（每行一个单词，可带释义）：</div>
+      <textarea id="importText" placeholder="每行一个单词，例如：&#10;emerge&#10;quarrel&#10;approach&#10;或带释义：&#10;emerge vi.出现，浮现&#10;quarrel n.争吵，吵架"></textarea>
+    </div>
+
+    <div class="acts">
+      <button class="btn" id="importCancel">取消</button>
+      <button class="btn primary" id="importConfirm">开始导入</button>
+    </div>
+    <div class="err" id="importErr"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ================================================================
+ *  工具函数
+ * ================================================================ */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const nl = s => esc(s).replace(/\n/g, '<br>');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+/* ================================================================
+ *  IndexedDB 本地缓存
+ * ================================================================ */
+const DB = {
+  db: null,
+  open() {
+    return new Promise((res, rej) => {
+      if (!window.indexedDB) return rej(new Error('no indexedDB'));
+      const r = indexedDB.open('vocab_demo', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => { this.db = r.result; res(); };
+      r.onerror = () => rej(r.error);
+    });
+  },
+  get(k) {
+    if (!this.db) return Promise.resolve(null);
+    return new Promise((res, rej) => {
+      const r = this.db.transaction('kv').objectStore('kv').get(k);
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+  },
+  set(k, v) {
+    if (!this.db) return Promise.resolve();
+    return new Promise((res, rej) => {
+      const tx = this.db.transaction('kv', 'readwrite');
+      tx.objectStore('kv').put(v, k);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+  }
+};
+
+/* ================================================================
+ *  PDF 解析（使用 pdf.js）
+ * ================================================================ */
+const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    if (document.querySelector(`script[src="${src}"]`)) return res();
+    const s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+async function loadPdfJs() {
+  if (!window.pdfjsLib) {
+    await loadScript(PDFJS_CDN);
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+    }
+  }
+  if (!window.pdfjsLib) throw new Error('PDF 解析库加载失败，请检查网络后重试。');
+}
+
+/**
+ * 从 PDF 文件中提取所有英文单词
+ * 策略：提取所有文本 → 拼接 → 用正则匹配英文单词 → 去重
+ */
+async function extractWordsFromPdf(file) {
+  await loadPdfJs();
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
+  const totalPages = pdf.numPages;
+  let allText = '';
+
+  for (let p = 1; p <= totalPages; p++) {
+    const page = await pdf.getPage(p);
+    const tc = await page.getTextContent();
+    // 按 y 坐标排序，尽量保持阅读顺序（pdf.js 返回的顺序可能错乱）
+    const items = tc.items.map(it => ({
+      str: it.str || '',
+      x: it.transform[4],
+      y: it.transform[5],
+    })).filter(it => it.str.trim());
+
+    // 按 y 从大到小（从上到下），同一行按 x 从小到大
+    items.sort((a, b) => {
+      if (Math.abs(a.y - b.y) > 5) return b.y - a.y;
+      return a.x - b.x;
+    });
+
+    for (const it of items) {
+      allText += it.str + ' ';
+    }
+    allText += '\n';
+  }
+
+  // 提取所有英文单词（允许连字符、撇号）
+  const wordRegex = /\b[A-Za-z][A-Za-z'\-]*\b/g;
+  const rawWords = allText.match(wordRegex) || [];
+
+  // 过滤表头、常见无意义词、长度 < 2 的词
+  const stopWords = new Set(['word', 'meaning', 'words', 'meanings', 'english', 'chinese', 'page', 'of', 'the', 'and', 'to', 'a', 'an']);
+  const seen = new Set();
+  const result = [];
+
+  for (let w of rawWords) {
+    w = w.trim();
+    const lower = w.toLowerCase();
+    if (w.length < 2) continue;
+    if (stopWords.has(lower)) continue;
+    if (seen.has(lower)) continue;
+    // 过滤纯数字和纯符号（正则已保证以字母开头，此处仅保险）
+    if (!/^[A-Za-z]/.test(w)) continue;
+    seen.add(lower);
+    result.push({ word: w, meaning: '' });
+  }
+
+  return { words: result, totalPages, textLength: allText.length };
+}
+
+/* ================================================================
+ *  有道词典数据获取层
+ * ================================================================ */
+function parseYoudaoResponse(json, word) {
+  const entry = {
+    word: word,
+    ukphone: '',
+    usphone: '',
+    phone: '',
+    meanings: [],
+    enMeanings: [],
+    exZh: [],
+    exEn: [],
+    phrases: [],
+  };
+
+  try {
+    // 音标
+    const ecWord = json?.ec?.word;
+    if (Array.isArray(ecWord) && ecWord.length) {
+      const w0 = ecWord[0];
+      entry.ukphone = w0.ukphone || '';
+      entry.usphone = w0.usphone || '';
+      entry.phone = w0.phone || '';
+    }
+
+    // 中文释义
+    if (Array.isArray(ecWord)) {
+      for (const w of ecWord) {
+        if (!Array.isArray(w.trs)) continue;
+        for (const tr of w.trs) {
+          if (!Array.isArray(tr.tr)) continue;
+          for (const t of tr.tr) {
+            const pos = t.pos || '';
+            const tran = (t.tran || '').trim();
+            if (tran) entry.meanings.push(pos ? `${pos} ${tran}` : tran);
+          }
+        }
+      }
+    }
+
+    // 英文释义
+    const eeWord = json?.ee?.word;
+    if (Array.isArray(eeWord)) {
+      for (const w of eeWord) {
+        if (!Array.isArray(w.trs)) continue;
+        for (const tr of w.trs) {
+          if (!Array.isArray(tr.tr)) continue;
+          for (const t of tr.tr) {
+            const tran = (t.tran || '').trim();
+            if (tran) entry.enMeanings.push(tran);
+          }
+        }
+      }
+    }
+
+    // 双语例句
+    const blng = json?.blng_sents_part;
+    if (blng && Array.isArray(blng['sentence-pair'])) {
+      for (const pair of blng['sentence-pair']) {
+        const en = (pair.sentence || '').trim();
+        const zh = (pair.sentence_translation || '').trim();
+        if (en) entry.exZh.push({ en, zh });
+        if (entry.exZh.length >= 3) break;
+      }
+    }
+
+    // 权威例句
+    const auth = json?.auth_sents_part;
+    if (auth && Array.isArray(auth.sent)) {
+      for (const s of auth.sent) {
+        const en = (s.en || '').trim();
+        if (en) entry.exEn.push(en);
+        if (entry.exEn.length >= 3) break;
+      }
+    }
+
+    // 短语搭配
+    const phrs = json?.phrs;
+    if (phrs && Array.isArray(phrs.phrs)) {
+      for (const p of phrs.phrs) {
+        const en = (p.headword?.value || p.headword || '').trim();
+        const zh = (p.translation?.value || p.translation || '').trim();
+        if (en) entry.phrases.push({ en, zh });
+        if (entry.phrases.length >= 5) break;
+      }
+    }
+
+    // 兜底例句
+    if (!entry.exEn.length) {
+      const media = json?.media_sents_part;
+      if (media && Array.isArray(media.sent)) {
+        for (const s of media.sent) {
+          const en = (s.en || s.sentence || '').trim();
+          if (en) entry.exEn.push(en);
+          if (entry.exEn.length >= 3) break;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[parseYoudao] 解析异常:', e);
+  }
+
+  return entry;
+}
+
+async function fetchYoudao(word, retries = 2) {
+  const url = `https://dict.youdao.com/jsonapi?q=${encodeURIComponent(word)}`;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 12000);
+      const r = await fetch(url, { signal: ctrl.signal });
+      clearTimeout(timer);
+
+      if (r.status === 429) {
+        if (attempt < retries) { await sleep(2000); continue; }
+        return { error: 'rate_limit' };
+      }
+      if (!r.ok) return { error: 'http_' + r.status };
+
+      const json = await r.json();
+      return parseYoudaoResponse(json, word);
+    } catch (e) {
+      if (attempt < retries) { await sleep(1000); continue; }
+      return { error: 'network' };
+    }
+  }
+}
+
+/* ================================================================
+ *  批量预查询队列
+ * ================================================================ */
+const BATCH = {
+  queue: [],
+  cache: {},
+  running: false,
+  paused: false,
+  done: 0,
+  total: 0,
+  errors: [],
+  CONCURRENCY: 3,
+  GAP: 400,
+};
+
+async function startBatchFetch() {
+  const words = S.words.map(e => e.word);
+  const uncached = words.filter(w => !BATCH.cache[w.toLowerCase()]);
+
+  if (!uncached.length) {
+    bot('<span class="muted">✅ 所有单词都已在本地缓存中，无需重新查询。</span>');
+    return;
+  }
+
+  BATCH.queue = uncached.slice();
+  BATCH.total = uncached.length;
+  BATCH.done = 0;
+  BATCH.errors = [];
+  BATCH.paused = false;
+  BATCH.running = true;
+  $('#statusBar').classList.remove('hidden');
+  updateBatchUI();
+
+  await runBatchLoop();
+}
+
+async function runBatchLoop() {
+  while (BATCH.queue.length && !BATCH.paused) {
+    const batch = BATCH.queue.splice(0, BATCH.CONCURRENCY);
+    await Promise.all(batch.map(async (word) => {
+      const key = word.toLowerCase();
+      if (BATCH.cache[key]) { BATCH.done++; return; }
+      const result = await fetchYoudao(word);
+      if (result && !result.error) {
+        BATCH.cache[key] = result;
+      } else {
+        BATCH.errors.push({ word, error: result?.error || 'unknown' });
+      }
+      BATCH.done++;
+      updateBatchUI();
+    }));
+    await sleep(BATCH.GAP);
+  }
+
+  BATCH.running = false;
+  if (!BATCH.paused) {
+    await DB.set('dict_cache', BATCH.cache);
+    updateCacheInfo();
+    const okCount = BATCH.total - BATCH.errors.length;
+    bot(`<b>📦 批量预查询完成</b><br>成功 <b>${okCount}</b> / ${BATCH.total} 个单词${BATCH.errors.length ? `，失败 <b>${BATCH.errors.length}</b> 个` : ''}。<br><span class="muted small">所有结果已保存在浏览器本地，下次打开无需重新查询。</span>`);
+    $('#statusBar').classList.add('hidden');
+  }
+}
+
+function updateBatchUI() {
+  const pct = BATCH.total ? Math.round(BATCH.done / BATCH.total * 100) : 0;
+  $('#progressFill').style.width = pct + '%';
+  $('#statusText').textContent = `查询中 ${BATCH.done}/${BATCH.total}（${pct}%）`;
+  $('#btnPauseResume').textContent = BATCH.paused ? '继续' : '暂停';
+}
+
+function updateCacheInfo() {
+  const n = Object.keys(BATCH.cache).length;
+  $('#cacheInfo').textContent = n ? `已缓存 ${n} 个词` : '尚未缓存';
+}
+
+$('#btnPauseResume').addEventListener('click', () => {
+  BATCH.paused = !BATCH.paused;
+  if (!BATCH.paused && !BATCH.running) {
+    BATCH.running = true;
+    runBatchLoop();
+  }
+  updateBatchUI();
+});
+
+$('#btnBatchFetch').addEventListener('click', () => startBatchFetch());
+
+/* ================================================================
+ *  应用状态
+ * ================================================================ */
+const S = {
+  words: [],
+  deck: [],
+  cur: null,
+  mode: null,
+  phase: 'idle',
+  log: [],
+};
+
+/* ================================================================
+ *  聊天 UI
+ * ================================================================ */
+const chat = $('#chat'), input = $('#input');
+
+function addMsg(role, html) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + role;
+  d.innerHTML = `<div class="bubble">${html}</div>`;
+  chat.appendChild(d);
+  requestAnimationFrame(() => chat.scrollTop = chat.scrollHeight);
+  return d;
+}
+const bot = h => addMsg('bot', h);
+const me = t => addMsg('me', esc(t));
+
+/* ================================================================
+ *  词条展示
+ * ================================================================ */
+function renderHintOnly(entry) {
+  const e = entry;
+  let h = '<span class="tag">提示 · 只给英文线索</span>';
+
+  h += '<div class="sec"><div class="lab">音标</div><div>';
+  const parts = [];
+  if (e.ukphone) parts.push(`<span class="lab2">英</span> <span class="ph">${esc(e.ukphone)}</span>`);
+  if (e.usphone) parts.push(`<span class="lab2">美</span> <span class="ph">${esc(e.usphone)}</span>`);
+  h += parts.length ? parts.join('　') : '<span class="muted">未查到音标</span>';
+  h += '</div></div>';
+
+  const exs = e.exEn.length ? e.exEn : e.exZh.map(x => x.en);
+  h += '<div class="sec"><div class="lab">例句</div>';
+  if (exs.length) {
+    h += exs.map(s => `<div class="ex">${esc(s)}</div>`).join('');
+  } else {
+    h += '<div class="muted">暂无例句</div>';
+  }
+  h += '</div>';
+
+  h += '<div class="sec"><div class="lab">短语 / 搭配</div>';
+  if (e.phrases.length) {
+    h += `<ul class="pl">${e.phrases.map(p => `<li>${esc(p.en)}</li>`).join('')}</ul>`;
+  } else {
+    h += '<div class="muted">未收录短语</div>';
+  }
+  h += '</div>';
+
+  h += '<div class="muted small">想好后直接输入答案，或输入 <b>2</b> 看完整答案（含中文释义）</div>';
+  return h;
+}
+
+function renderFullAnswer(entry, userAnswer, isCorrect) {
+  const e = entry;
+  let h = '';
+
+  if (isCorrect === true) h += '<div style="font-weight:700;color:var(--ok);margin-bottom:8px">✅ 正确</div>';
+  else if (isCorrect === false) h += `<div style="font-weight:700;color:var(--bad);margin-bottom:8px">❌ 不对　你的回答：${esc(userAnswer)}</div>`;
+  else h += '<div style="font-weight:700;color:var(--brand);margin-bottom:8px">👀 完整答案</div>';
+
+  h += `<div style="font-size:22px;font-weight:700;margin:4px 0">${esc(e.word)}</div>`;
+
+  h += '<div class="sec"><div class="lab">音标</div><div>';
+  const parts = [];
+  if (e.ukphone) parts.push(`<span class="lab2">英</span> <span class="ph">${esc(e.ukphone)}</span>`);
+  if (e.usphone) parts.push(`<span class="lab2">美</span> <span class="ph">${esc(e.usphone)}</span>`);
+  h += parts.length ? parts.join('　') : '<span class="muted">未查到音标</span>';
+  h += '</div></div>';
+
+  h += '<div class="sec"><div class="lab">释义</div>';
+  if (e.meanings.length) {
+    h += `<div>${nl(e.meanings.join('\n'))}</div>`;
+  } else {
+    h += '<div class="muted">暂无释义</div>';
+  }
+  h += '</div>';
+
+  if (e.enMeanings.length) {
+    h += '<div class="sec"><div class="lab">英文释义</div>';
+    h += `<div>${nl(e.enMeanings.slice(0, 2).join('\n'))}</div>`;
+    h += '</div>';
+  }
+
+  h += '<div class="sec"><div class="lab">例句</div>';
+  const allEx = [];
+  for (const x of e.exZh) allEx.push({ en: x.en, zh: x.zh });
+  for (const en of e.exEn) {
+    if (allEx.length >= 3) break;
+    if (!allEx.some(x => x.en === en)) allEx.push({ en, zh: '' });
+  }
+  if (allEx.length) {
+    h += allEx.slice(0, 3).map(x =>
+      `<div class="ex">${esc(x.en)}${x.zh ? `<div class="muted">${esc(x.zh)}</div>` : ''}</div>`
+    ).join('');
+  } else {
+    h += '<div class="muted">暂无例句</div>';
+  }
+  h += '</div>';
+
+  h += '<div class="sec"><div class="lab">短语 / 搭配</div>';
+  if (e.phrases.length) {
+    h += `<ul class="pl">${e.phrases.map(p =>
+      `<li>${esc(p.en)}${p.zh ? ` <span class="muted">— ${esc(p.zh)}</span>` : ''}</li>`
+    ).join('')}</ul>`;
+  } else {
+    h += '<div class="muted">未收录短语</div>';
+  }
+  h += '</div>';
+
+  if (!e.meanings.length && !e.ukphone && !e.exZh.length && !e.phrases.length) {
+    h += '<div class="muted small">⚠️ 这个词还没有缓存数据，请先点击上方「批量预查询」。</div>';
+  }
+
+  return h;
+}
+
+function getEntry(word) {
+  const key = word.toLowerCase();
+  return BATCH.cache[key] || { word, ukphone: '', usphone: '', meanings: [], enMeanings: [], exZh: [], exEn: [], phrases: [] };
+}
+
+/* ================================================================
+ *  出题逻辑
+ * ================================================================ */
+function startMode(m) {
+  if (!S.words.length) { bot('请先点击「📥 导入 PDF / 文本」导入单词。'); return; }
+  S.mode = m;
+  S.deck = shuffle([...S.words]);
+  bot(`<span class="muted">已切换到模式 ${m}：${m === 'A' ? '英→中' : '中→英'}</span>`);
+  nextQuestion();
+}
+
+function nextQuestion() {
+  if (!S.words.length) return;
+  if (!S.deck.length) { S.deck = shuffle([...S.words]); bot('<span class="muted">词库已全部抽完，重新洗牌继续～</span>'); }
+  S.cur = S.deck.pop();
+  S.phase = 'asking';
+
+  if (S.mode === 'A') {
+    bot(`<span class="tag">A · 英 → 中</span><div class="big">${esc(S.cur.word)}</div><div class="muted small">输入中文意思作答 · 1 = 英文线索 · 2 = 完整答案</div>`);
+  } else {
+    bot(`<span class="tag">B · 中 → 英</span><div class="big zh">${nl(S.cur.meaning || '（无释义）')}</div><div class="muted small">拼写英文单词 · 1 = 英文线索 · 2 = 完整答案</div>`);
+  }
+}
+
+/* ================================================================
+ *  指令路由
+ * ================================================================ */
+async function route(t) {
+  if (/^[aA]$/.test(t)) return startMode('A');
+  if (/^[bB]$/.test(t)) return startMode('B');
+
+  if (S.phase === 'idle') { bot('先输入 <b>A</b> 或 <b>B</b> 开始抽查。'); return; }
+  if (S.phase === 'ended') { bot('本轮已结束，输入 <b>A</b> 或 <b>B</b> 开始新一轮。'); return; }
+
+  if (S.phase === 'asking') {
+    const entry = getEntry(S.cur.word);
+
+    if (t === '1') {
+      bot(renderHintOnly(entry));
+      return;
+    }
+
+    if (t === '2') {
+      S.phase = 'revealed';
+      bot(renderFullAnswer(entry, '', null));
+      return;
+    }
+
+    const isCorrect = t.toLowerCase().trim() === S.cur.word.toLowerCase().trim();
+    S.phase = 'revealed';
+    bot(renderFullAnswer(entry, t, isCorrect));
+    return;
+  }
+
+  if (S.phase === 'revealed') {
+    if (/^(下一个|下一题|next|n)$/i.test(t)) return nextQuestion();
+    bot('这题答案已经显示了，输入「下一个」继续～');
+    return;
+  }
+}
+
+async function handle(raw) {
+  const t = raw.trim();
+  if (!t) return;
+  me(t);
+  try { await route(t); } catch (e) { bot('出错了：' + esc(e.message)); }
+  input.focus();
+}
+
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) {
+    e.preventDefault();
+    const v = input.value; input.value = '';
+    handle(v);
+  }
+});
+$('#btnSend').addEventListener('click', () => { const v = input.value; input.value = ''; handle(v); });
+document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => handle(c.dataset.cmd)));
+
+/* ================================================================
+ *  导入功能（PDF / 文本）
+ * ================================================================ */
+function openImportModal() {
+  $('#importModal').classList.remove('hidden');
+  $('#importText').value = '';
+  $('#importFileInfo').textContent = '';
+  $('#importErr').textContent = '';
+  $('#importFile').value = '';
+}
+function closeImportModal() {
+  $('#importModal').classList.add('hidden');
+}
+
+/** 从纯文本解析单词（每行一个，或从 PDF 提取后的文本） */
+function parseImportText(text) {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const out = [];
+  const seen = new Set();
+
+  for (let line of lines) {
+    line = line.trim();
+    if (!line) continue;
+    if (/^(word|单词|词汇)\b/i.test(line) && line.length < 20) continue;
+
+    // 尝试按常见分隔符分割单词和释义
+    let word = '', meaning = '';
+    // 优先匹配行首英文单词
+    const m = line.match(/^([A-Za-z][A-Za-z'\-]*)\s*[\s,，;；:：\t]+(.*)$/);
+    if (m) {
+      word = m[1].trim();
+      meaning = m[2].trim();
+    } else {
+      // 没有分隔符，整行当作单词
+      const m2 = line.match(/^([A-Za-z][A-Za-z'\-]*)/);
+      if (m2) word = m2[1].trim();
+    }
+    if (!word || word.length < 2) continue;
+    const key = word.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ word, meaning });
+  }
+  return out;
+}
+
+async function doImport() {
+  const text = $('#importText').value;
+  if (!text.trim()) {
+    $('#importErr').textContent = '请粘贴文本或选择文件后再导入。';
+    return;
+  }
+  const words = parseImportText(text);
+  if (!words.length) {
+    $('#importErr').textContent = '没有解析出任何有效单词，请检查格式。';
+    return;
+  }
+  S.words = words;
+  closeImportModal();
+  bot(`<b>📚 成功导入 ${words.length} 个单词</b><br>
+    <span class="muted small">前 5 个预览：${words.slice(0, 5).map(w => esc(w.word)).join('、')}${words.length > 5 ? '…' : ''}<br>
+    点击上方「批量预查询」开始从有道词典获取音标、释义、例句和短语。</span>`);
+  updateCacheInfo();
+}
+
+async function handleImportFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  try {
+    if (ext === 'pdf') {
+      $('#importFileInfo').textContent = '正在解析 PDF…';
+      const { words, totalPages, textLength } = await extractWordsFromPdf(file);
+      if (!words.length) {
+        $('#importErr').textContent = '未能从 PDF 中提取到英文单词。请确认 PDF 是可复制文字的版本（非扫描图片）。';
+        $('#importFileInfo').textContent = '';
+        return;
+      }
+      // 将提取到的单词填入文本框，让用户确认
+      $('#importText').value = words.map(w => w.word).join('\n');
+      $('#importFileInfo').textContent = `已解析 ${totalPages} 页，提取到 ${words.length} 个单词（共 ${textLength} 字符）`;
+    } else {
+      // txt / csv
+      const buf = await file.arrayBuffer();
+      let text;
+      try {
+        text = new TextDecoder('utf-8', { fatal: true }).decode(buf);
+      } catch (e) {
+        text = new TextDecoder('gbk').decode(buf);
+      }
+      text = text.replace(/^\uFEFF/, '');
+      $('#importText').value = text;
+      $('#importFileInfo').textContent = `已读取：${file.name}（${text.length} 字符）`;
+    }
+  } catch (e) {
+    $('#importErr').textContent = '文件解析失败：' + e.message;
+    $('#importFileInfo').textContent = '';
+  }
+}
+
+$('#btnImport').addEventListener('click', openImportModal);
+$('#importCancel').addEventListener('click', closeImportModal);
+$('#importConfirm').addEventListener('click', doImport);
+$('#importFile').addEventListener('change', e => {
+  if (e.target.files[0]) handleImportFile(e.target.files[0]);
+});
+$('#importModal').addEventListener('click', e => {
+  if (e.target.id === 'importModal') closeImportModal();
+});
+
+/* ================================================================
+ *  启动
+ * ================================================================ */
+(async function init() {
+  try { await DB.open(); } catch (e) { console.warn('IndexedDB 不可用，缓存将仅在内存中保留'); }
+  const cached = await DB.get('dict_cache');
+  if (cached) {
+    BATCH.cache = cached;
+    updateCacheInfo();
+    bot(`<span class="muted small">📦 已从本地缓存恢复 ${Object.keys(cached).length} 个单词的查询结果。</span>`);
+  }
+})();
+</script>
+</body>
+</html>
